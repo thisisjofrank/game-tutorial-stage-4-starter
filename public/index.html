@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link
+      rel="preload"
+      href="https://demo-styles.deno.deno.net/fonts/Moranga-Regular.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <link
+      rel="preload"
+      href="https://demo-styles.deno.deno.net/fonts/Moranga-Medium.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <link
+      rel="preload"
+      href="https://demo-styles.deno.deno.net/fonts/Recursive_Variable.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <link rel="stylesheet" href="https://demo-styles.deno.deno.net/styles.css">
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
+    <title>Dino Runner</title>
+  </head>
+
+  <body>
+    <main>
+      <h1>🦕 Dino Runner</h1>
+      <a
+        href="https://app.deno.com/new?clone=https://github.com/thisisjofrank/game-tutorial-stage-3.git?install=deno_install"
+        class="deploy-button"
+      ><img src="https://deno.com/button" alt="Deploy on Deno" /></a>
+
+      <section class="container">
+        <h2>Stage 3: Obstacles & Collision Detection</h2>
+        <p>
+          Now we have a complete game! Jump over cacti, avoid collisions, and
+          beat your high score. Use <kbd>Space</kbd>
+          or <kbd>↑</kbd> to jump. Click the canvas to start playing.
+        </p>
+      </section>
+
+      <section class="container canvas-container">
+        <canvas id="gameCanvas" width="800" height="200"></canvas>
+        <div class="game-ui">
+          <div class="score">Score: <span id="score">0</span></div>
+          <div class="high-score">
+            High Score: <span id="highScore">0</span>
+          </div>
+          <div class="game-status" id="gameStatus">Click to Start!</div>
+        </div>
+      </section>
+
+      <section class="container">
+        <h3>Controls</h3>
+        <div class="control-grid">
+          <kbd>Space</kbd>
+          <kbd>↑</kbd>
+          <span class="click">🖱️ Click</span>
+          <span>Jump</span>
+          <span>Jump</span>
+          <span>Start/Jump</span>
+        </div>
+      </section>
+
+      <section class="container">
+        <h3>Stage 3 Features</h3>
+        <div class="feature-grid">
+          <div class="feature-item">
+            <p class="icon">🌵</p>
+            <strong>Obstacle System</strong>
+            <p>Randomly generated cacti with collision detection</p>
+          </div>
+          <div class="feature-item">
+            <p class="icon">💥</p>
+            <strong>Game Over Logic</strong>
+            <p>Complete game loop with restart functionality</p>
+          </div>
+          <div class="feature-item">
+            <p class="icon">🏅</p>
+            <strong>High Score System</strong>
+            <p>Local storage for persistent high score tracking</p>
+          </div>
+          <div class="feature-item">
+            <p class="icon">🪜</p>
+            <strong>Progressive Difficulty</strong>
+            <p>Increasing speed and obstacle frequency over time</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="container status">
+        <h3>Server Status</h3>
+        <p>
+          Server health check: <a href="/api/health" target="_blank"
+          >Health Check Endpoint</a>
+        </p>
+        <p>
+          <small>Should return:
+            <code>{"status": "ok", "message": "🦕 Stage 1 - Dino server is
+              healthy!"}</code></small>
+        </p>
+      </section>
+
+      <section class="container">
+        <h3>Ready for Stage 4?</h3>
+        <p>
+          Now that we have a complete game, we can add some data storage with a
+          Postgres database to save high scores and allow players to customize
+          their game experience.
+        </p>
+        <a
+          href="https://game-tutorial-stage-4.thisisjofrank.deno.net/"
+          class="demo-link"
+        >Go to stage 4</a>
+      </section>
+    </main>
+
+    <script src="js/game.js" type="module"></script>
+  </body>
+</html>

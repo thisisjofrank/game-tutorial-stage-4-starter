@@ -4,14 +4,10 @@
     "start": "deno run --allow-net --allow-read --allow-env src/main.ts"
   },
   "imports": {
-    "@oak/oak": "jsr:@oak/oak@17",
-    "npm:pg": "npm:pg@^8.11.0"
+    "@oak/oak": "jsr:@oak/oak@17"
   },
-  "compilerOptions": {
-    "strict": true,
-    "lib": [
-      "DOM",
-      "ES2022"
-    ]
+  "deploy": {
+    "project": "game-tutorial-stage-3",
+    "entrypoint": "src/main.ts"
   }
 }

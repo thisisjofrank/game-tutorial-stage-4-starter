@@ -1,59 +1,46 @@
 # 🦕 Dino Runner Game - Stage 4 Starter
 
-Welcome to Stage 4! Building on your complete Stage 3 game, you'll now add
-database integration and add a global leaderboard.
+Welcome to Stage 4 of the Dino Runner Game tutorial! Having built a complete
+interactive game in Stages 1-3, you'll now **add database integration and social
+features** with PostgreSQL, global leaderboards, and player customization.
 
-Building on Stage 3's complete game, you'll add:
+## What you'll build in this stage
 
-- 🗄️ SQLite database integration for persistent data
-- 🌍 Global leaderboard system with user rankings
-- 🎨 Player customization options
+By the end of Stage 4, you'll have:
+
+- ✅ PostgreSQL database integration with connection pooling
+- ✅ Global leaderboard system with persistent high scores
+- ✅ Player customization system (dino colors, themes)
+- ✅ Score submission and retrieval API endpoints
+- ✅ Database middleware for connection management
+- ✅ Enhanced UI with leaderboard display and customization modal
+- ✅ Data persistence across sessions and devices
+- ✅ Professional game architecture with separation of concerns
 
 ## Getting started
 
 ### Prerequisites
 
-- **Completed Stage 3** - You should have a working game with obstacles,
-  collision detection, and local high scores
-- Your Stage 3 project files (we'll build upon them)
+- Completed Stage 3 (or clone the Stage 3 starter as your foundation)
 - [Deno](https://deno.com/) installed on your system
+- A PostgreSQL database (we recommend [Neon](https://neon.tech/) for cloud
+  hosting)
 - A code editor (VS Code recommended)
-- Basic understanding of databases and SQL
+- Understanding of databases, SQL, and API design concepts
 
-### Add dependencies for database support
+### Setup
 
-We will install the PostgreSQL driver for Deno to handle database operations.
+1. Copy your Stage 3 project or clone this starter repository
+2. Install the dependencies with `deno install`
 
-```bash
-deno add npm:pg
-```
+## Database setup
 
-This will update your `deno.json` to include database dependencies:
+1. Visit [neon.tech](https://neon.tech/) and sign up for an account
+2. Create a new project and name it "dino-runner"
+3. Copy the connection string from your dashboard, this will be used in
+   your `.env` file
 
-<details>
-<summary>🔄 Enhanced deno.json (click to expand)</summary>
-
-```json
-{
-  "tasks": {
-    "dev": "deno run --allow-net --allow-read --allow-env --env-file --watch src/main.ts",
-    "start": "deno run --allow-net --allow-read --allow-env src/main.ts"
-  },
-  "imports": {
-    "@oak/oak": "jsr:@oak/oak@17",
-    "npm:pg": "npm:pg@^8.11.0"
-  }
-}
-```
-
-</details>
-
-### Create a PostgreSQL database with Neon
-
-1. Sign up for a Neon account at [neon.tech](https://neon.tech).
-2. Create a new project with a user and copy the database connection string.
-
-## Update .env file
+## Environment configuration
 
 Update your `.env` file to add a `DATABASE_URL` variable with the database
 connection string details, also add feature flags for leaderboard and
@@ -79,406 +66,367 @@ ENABLE_CUSTOMIZATION=true
 
 </details>
 
-## Step-by-Step Implementation
+## Database architecture and schema
 
-Now let's build Stage 4! We'll transform your local Stage 3 game into a
-multiplayer experience with persistent data storage. Think of this as upgrading
-from a single-player arcade machine to an online gaming platform where players
-from around the world can compete.
+In this stage, we'll implement a relational database schema to store game data
+persistently. Understanding database design is crucial for building scalable
+applications.
 
-### Step 1: Understanding Database Design
+We'll create four main tables:
 
-Before we write any code, let's understand what we're building. In Stage 3, your
-high scores disappeared when you refreshed the page. Now we want to:
+1. **players**: User accounts and profiles
+2. **high_scores**: Global leaderboard entries
+3. **player_settings**: Customization preferences
+4. **game_sessions**: Analytics and session tracking
 
-1. **Store player information** - usernames, settings, when they joined
-2. **Save all high scores** - not just the current player's best score
-3. **Track game statistics** - how long games last, obstacles avoided, etc.
-4. **Remember player preferences** - custom colors, themes, difficulty settings
+First, let's define our database structure. We use a schema file to
+define all our tables and relationships.
 
-We'll use **PostgreSQL** (a powerful database) instead of simple browser storage
-because:
-
-- It can handle multiple players simultaneously
-- Data persists even if the server restarts
-- We can run complex queries (like "show me the top 10 players")
-- It's what real web applications use
-
-#### Step 1.1: Design the Database Schema
-
-Think of a database schema like the blueprint for organizing your data. We need
-four "tables" (like spreadsheets):
-
-Create `src/database/schema.sql`:
+Make a new directory called `database` in your `src` folder and create a file
+called `schema.sql`:
 
 <details>
-<summary>📄 src/database/schema.sql (click to expand)</summary>
+<summary>📁 src/database/schema.sql (click to expand)</summary>
 
 ```sql
 -- Stage 4: Database schema for Dino Runner Game
 
 -- Players table for user accounts
--- This is like a "membership registry" for our game
 CREATE TABLE IF NOT EXISTS players (
-  id SERIAL PRIMARY KEY,              -- Auto-incrementing unique ID (like a player number)
-  username VARCHAR(50) UNIQUE NOT NULL, -- Player's chosen name (must be unique!)
-  email VARCHAR(100) UNIQUE,          -- Optional email for future features
-  avatar_url TEXT,                    -- Optional profile picture URL
-  created_at TIMESTAMP DEFAULT NOW(), -- When they first joined
-  updated_at TIMESTAMP DEFAULT NOW()  -- Last time they updated their profile
+  id SERIAL PRIMARY KEY,
+  username VARCHAR(50) UNIQUE NOT NULL,
+  email VARCHAR(100) UNIQUE,
+  avatar_url TEXT,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
 );
 
 -- High scores table for global leaderboard
--- This stores EVERY game score, not just the best ones
 CREATE TABLE IF NOT EXISTS high_scores (
-  id SERIAL PRIMARY KEY,              -- Unique ID for each score entry
-  player_id INTEGER REFERENCES players(id) ON DELETE CASCADE, -- Links to players table
-  player_name VARCHAR(50) NOT NULL,   -- Store name directly for anonymous players
-  score INTEGER NOT NULL,             -- The actual score achieved
-  obstacles_avoided INTEGER DEFAULT 0, -- How many cacti they jumped over
-  game_duration_seconds INTEGER DEFAULT 0, -- How long the game lasted
-  max_speed_reached DECIMAL(5,2) DEFAULT 0, -- Fastest speed during the game
-  created_at TIMESTAMP DEFAULT NOW()  -- When this score was achieved
+  id SERIAL PRIMARY KEY,
+  player_id INTEGER REFERENCES players(id) ON DELETE CASCADE,
+  player_name VARCHAR(50) NOT NULL, -- For anonymous players
+  score INTEGER NOT NULL,
+  obstacles_avoided INTEGER DEFAULT 0,
+  game_duration_seconds INTEGER DEFAULT 0,
+  max_speed_reached DECIMAL(5,2) DEFAULT 0,
+  created_at TIMESTAMP DEFAULT NOW()
 );
 
 -- Player customization settings
--- Remember each player's preferred colors, themes, etc.
 CREATE TABLE IF NOT EXISTS player_settings (
   id SERIAL PRIMARY KEY,
-  player_id INTEGER REFERENCES players(id) ON DELETE CASCADE, -- Links to specific player
-  dino_color VARCHAR(7) DEFAULT '#4CAF50',     -- Hex color code (like #FF0000 for red)
-  background_theme VARCHAR(20) DEFAULT 'desert', -- Theme name: desert, forest, etc.
-  sound_enabled BOOLEAN DEFAULT true,          -- Whether they want sound effects
-  difficulty_preference VARCHAR(20) DEFAULT 'normal', -- easy, normal, or hard
+  player_id INTEGER REFERENCES players(id) ON DELETE CASCADE,
+  dino_color VARCHAR(7) DEFAULT '#4CAF50',
+  background_theme VARCHAR(20) DEFAULT 'desert',
+  sound_enabled BOOLEAN DEFAULT true,
+  difficulty_preference VARCHAR(20) DEFAULT 'normal',
   updated_at TIMESTAMP DEFAULT NOW(),
-  UNIQUE(player_id)                            -- Each player can only have one settings row
+  UNIQUE(player_id)
 );
 
--- Game sessions for analytics (optional - for future features)
--- Track detailed info about each game played
+-- Game sessions for analytics
 CREATE TABLE IF NOT EXISTS game_sessions (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(), -- Random unique ID
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   player_id INTEGER REFERENCES players(id) ON DELETE SET NULL,
   final_score INTEGER NOT NULL,
   obstacles_avoided INTEGER DEFAULT 0,
   game_duration_seconds INTEGER NOT NULL,
   max_speed_reached DECIMAL(5,2) DEFAULT 0,
-  session_data JSONB,                          -- Extra data as JSON (very flexible!)
+  session_data JSONB, -- For storing additional game metrics
   created_at TIMESTAMP DEFAULT NOW()
 );
 
--- Indexes for performance
--- These make database queries faster (like an index in a book)
+-- Indexes for performance optimization
 CREATE INDEX IF NOT EXISTS idx_high_scores_score ON high_scores(score DESC);
-CREATE INDEX IF NOT EXISTS idx_high_scores_created_at ON high_scores(created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_game_sessions_player_id ON game_sessions(player_id);
 CREATE INDEX IF NOT EXISTS idx_game_sessions_created_at ON game_sessions(created_at DESC);
-
--- Sample data for development
--- Let's add some fake players and scores so we have data to work with
-INSERT INTO players (username, email) VALUES 
-  ('DinoMaster', 'dinomaster@example.com'),
-  ('CactusJumper', 'cactus@example.com'),
-  ('SpeedRunner', 'speed@example.com')
-ON CONFLICT (username) DO NOTHING; -- Don't add duplicates if they already exist
-
-INSERT INTO high_scores (player_name, score, obstacles_avoided) VALUES 
-  ('DinoMaster', 120, 12),
-  ('CactusJumper', 95, 9),
-  ('SpeedRunner', 150, 15),
-  ('Anonymous', 75, 7),
-  ('ProGamer', 200, 20)
-ON CONFLICT DO NOTHING;
+CREATE INDEX IF NOT EXISTS idx_players_username ON players(username);
 ```
 
-What's in this code?
-
-- **SERIAL PRIMARY KEY**: Creates auto-incrementing IDs (1, 2, 3, ...)
-- **REFERENCES**: Creates relationships between tables (foreign keys)
-- **UNIQUE**: Ensures no duplicate usernames or emails
-- **DEFAULT**: Sets automatic values when no value is provided
-- **VARCHAR(50)**: Text field with maximum length of 50 characters
-- **TIMESTAMP**: Stores date and time
-- **BOOLEAN**: True/false values
-- **JSONB**: Stores flexible JSON data (great for future features!)
-
-The tables work together: a player has settings and can have many high scores,
-but each score belongs to one player.
+- `SERIAL PRIMARY KEY`: An auto-incrementing unique identifier to ensure each record has a unique ID
+- `REFERENCES`: Foreign key relationships between tables. These create a link between two tables, ensuring referential integrity, so for example if a player is deleted, their related scores
+  and settings are also removed.
+- `ON DELETE CASCADE`: Automatically delete related records
+- `DEFAULT NOW()`: Automatically set timestamp on record creation
+- `UNIQUE`: Ensure no duplicate values
+- `INDEX`: Speed up queries on frequently searched columns
+- `JSONB`: Efficient storage for structured data (PostgreSQL-specific)
 
 </details>
 
-#### Step 1.2: Create Database Connection Pool
+### Database connection management
 
-Now we need to create a "connection pool" - think of it like a phone system that
-manages multiple conversations with the database at once. Instead of opening a
-new connection for every request (which is slow), we keep a few connections
-ready to use.
+We'll create a connection manager that handles PostgreSQL connections efficiently
+using connection pooling. This allows multiple concurrent requests to share a limited number of database connections, improving performance and resource utilization.
 
-Create `src/database/connection.ts`:
+In your `src/database` directory, create a file called `connection.ts`:
 
 <details>
-<summary>📄 src/database/connection.ts (click to expand)</summary>
+<summary>📁 src/database/connection.ts (click to expand)</summary>
 
 ```typescript
-import { Pool } from "npm:pg";
+import { Pool } from "https://deno.land/x/postgres@v0.17.0/mod.ts";
 
-// A global variable to store our connection pool, '| null' means it can be empty initially
+// Database connection pool for efficient connection management
 let pool: Pool | null = null;
 
+/**
+ * Initialize the database connection pool
+ * Connection pooling allows multiple concurrent database operations
+ * without creating new connections for each request
+ */
+export function initializeDatabase(): Pool {
+  if (pool) {
+    return pool; // Return existing pool if already initialized
+  }
+
+  const databaseUrl = Deno.env.get("DATABASE_URL");
+  if (!databaseUrl) {
+    throw new Error("DATABASE_URL environment variable is required");
+  }
+
+  // Create connection pool with optimized settings
+  pool = new Pool(databaseUrl, {
+    max: 10, // Maximum 10 concurrent connections
+    min: 2, // Minimum 2 connections always ready
+    idleTimeout: 60000, // Close idle connections after 1 minute
+    connectionTimeout: 10000, // Timeout connection attempts after 10 seconds
+  });
+
+  console.log("🗄️ Database connection pool initialized");
+  return pool;
+}
+
+/**
+ * Get the current database pool
+ * Throws error if not initialized
+ */
 export function getDatabase(): Pool {
   if (!pool) {
-    // Try to use DATABASE_URL first (for Neon and other cloud providers)
-    const databaseUrl = Deno.env.get("DATABASE_URL");
+    throw new Error(
+      "Database not initialized. Call initializeDatabase() first.",
+    );
+  }
+  return pool;
+}
 
-    if (databaseUrl) {
-      // This is the simplest case - we have a complete connection string
-      console.log("🔧 Using DATABASE_URL for connection pool");
-      pool = new Pool({
-        connectionString: databaseUrl, // e.g., "postgresql://user:pass@host:5432/dbname"
-        max: 10, // Keep 10 connections ready (adjust based on traffic)
-      });
-    } else {
-      // Check if Deno Deploy standard PostgreSQL environment variables are available
-      const pgHost = Deno.env.get("PGHOST");
-      const pgUser = Deno.env.get("PGUSER");
+/**
+ * Close the database connection pool
+ * Call this during application shutdown
+ */
+export async function closeDatabase(): Promise<void> {
+  if (pool) {
+    await pool.end();
+    pool = null;
+    console.log("🗄️ Database connection pool closed");
+  }
+}
+```
 
-      if (pgHost && pgUser) {
-        // Deno Deploy automatically sets these standard PostgreSQL env vars
-        console.log("🔧 Using Deno Deploy PostgreSQL environment variables");
-        const pgPassword = Deno.env.get("PGPASSWORD");
-        pool = new Pool({
-          host: pgHost, // e.g., "localhost" or "my-db.neon.tech"
-          user: pgUser, // e.g., "postgres" or "myuser"
-          password: pgPassword || undefined, // Use undefined instead of empty string
-          database: Deno.env.get("PGDATABASE") || "postgres", // Database name
-          port: parseInt(Deno.env.get("PGPORT") || "5432"), // PostgreSQL default port
-          max: 10,
-        });
-      } else {
-        // Fallback to custom environment variables for local development
-        console.log(
-          "🔧 Using custom DB environment variables (local development)",
-        );
-        const password = Deno.env.get("DB_PASSWORD");
-        pool = new Pool({
-          host: Deno.env.get("DB_HOST") || "localhost",
-          port: parseInt(Deno.env.get("DB_PORT") || "5432"),
-          database: Deno.env.get("DB_NAME") || "dino_runner",
-          user: Deno.env.get("DB_USER") || "postgres",
-          password: password || undefined, // Use undefined instead of empty string
-          max: 10,
-        });
+We use connection pooling to reuse database connections instead of creating new ones, and implement graceful handling of connection failures. One shared connection pool is used throughout the application, with proper cleanup of database connections on shutdown.
+
+</details>
+
+### Database migrations and initialization
+
+We'll need to set up our database tables and initial data automatically when the server starts. This ensures that the database schema is always up-to-date and ready for use. We can use a migration system to handle this.
+
+In your `src/database` directory, create a file called `migrations.ts`:
+
+<details>
+<summary>📁 src/database/migrations.ts (click to expand)</summary>
+
+```typescript
+import { Pool } from "https://deno.land/x/postgres@v0.17.0/mod.ts";
+
+/**
+ * Run database migrations to set up tables and initial data
+ * Migrations ensure database schema is consistent across environments
+ */
+export async function runMigrations(pool: Pool): Promise<void> {
+  console.log("🚀 Running database migrations...");
+
+  const client = await pool.connect();
+  try {
+    // Read and execute the schema file
+    const schemaSQL = await Deno.readTextFile("src/database/schema.sql");
+
+    // Split into individual statements and execute
+    const statements = schemaSQL
+      .split(";")
+      .map((stmt) => stmt.trim())
+      .filter((stmt) => stmt.length > 0);
+
+    for (const statement of statements) {
+      try {
+        await client.query(statement);
+      } catch (error) {
+        console.error(`❌ Migration error: ${error.message}`);
+        throw error;
       }
     }
 
-    console.log("🗄️ Database pool created successfully");
-  }
+    // Insert sample data for testing (optional)
+    await insertSampleData(client);
 
-  return pool; // Return the existing pool (don't create multiple!)
-}
-
-// Function to clean up connections when shutting down
-export async function closeDatabase(): Promise<void> {
-  if (pool) {
-    await pool.end(); // Close all connections gracefully
-    pool = null; // Reset the variable
-    console.log("🗄️ Database pool closed");
-  }
-}
-```
-
-What's in this code?
-
-- **Connection Pool**: Instead of opening/closing database connections for each
-  request, we maintain a "pool" of ready connections.
-- **Singleton Pattern**: We only create one pool and reuse it. Creating multiple
-  pools would waste resources.
-- **Error Handling**: If the environment variables aren't set, it falls back to
-  defaults that work for local development.
-
-</details>
-
-#### Step 1.3: Database Migrations (Setting Up Tables)
-
-"Migrations" are scripts that create or modify database tables. Think of them as
-assembly instructions for your database - they transform your empty database
-into one with all the tables and data your app needs.
-
-Create `src/database/migrations.ts`:
-
-<details>
-<summary>📄 src/database/migrations.ts (click to expand)</summary>
-
-```typescript
-import { getDatabase } from "./connection.ts";
-
-export async function initializeDatabase(): Promise<void> {
-  // Get our connection pool (which we created in connection.ts)
-  const pool = getDatabase();
-
-  console.log("🚀 Initializing database schema...");
-
-  // Read our SQL schema file (the one we created earlier)
-  const schema = await Deno.readTextFile("./src/database/schema.sql");
-
-  // Get a single connection from the pool to run our schema
-  const client = await pool.connect();
-  try {
-    // Execute the entire schema file as one big SQL command
-    // This creates all our tables, indexes, and sample data
-    await client.query(schema);
-    console.log("✅ Database schema initialized successfully");
+    console.log("✅ Database migrations completed successfully");
+  } catch (error) {
+    console.error("❌ Migration failed:", error);
+    throw error;
   } finally {
-    // ALWAYS release the connection back to the pool when done
-    // This is crucial - forgetting this will "leak" connections
-    client.release();
+    client.release(); // Always release the client back to the pool
   }
 }
 
-export function runMigrations(): void {
-  // Future migrations can be added here
-  // For example: "ADD COLUMN avatar_style to player_settings"
-  console.log("📦 No pending migrations");
+/**
+ * Insert sample data for testing and demonstration
+ */
+async function insertSampleData(client: any): Promise<void> {
+  try {
+    // Check if sample data already exists
+    const existingPlayers = await client.query("SELECT COUNT(*) FROM players");
+
+    if (parseInt(existingPlayers.rows[0].count) === 0) {
+      console.log("🌱 Inserting sample data...");
+
+      // Insert sample players
+      await client.query(`
+        INSERT INTO players (username, email) VALUES 
+        ('DinoMaster', 'dino@example.com'),
+        ('JumpQueen', 'jump@example.com'),
+        ('CactusDodger', 'dodge@example.com')
+        ON CONFLICT (username) DO NOTHING
+      `);
+
+      // Insert sample high scores
+      await client.query(`
+        INSERT INTO high_scores (player_name, score, obstacles_avoided) VALUES 
+        ('DinoMaster', 1250, 25),
+        ('JumpQueen', 980, 18),
+        ('CactusDodger', 750, 12),
+        ('SpeedRunner', 2100, 42),
+        ('Anonymous', 650, 10)
+      `);
+
+      console.log("✅ Sample data inserted");
+    }
+  } catch (error) {
+    console.warn(
+      "⚠️ Sample data insertion failed (this is OK):",
+      error.message,
+    );
+  }
 }
 ```
 
-What's in this code?
+These are idempotent operations, meaning they can be run multiple times without side effects. The migration system ensures that the database schema is always up-to-date, and sample data is inserted only if it doesn't already exist.
 
-- **Reading Files**: `Deno.readTextFile()` loads our SQL schema from the file
-  system
-- **Connection Management**: We get a connection from the pool, use it, then
-  ALWAYS release it back
-- **Error Handling**: The `try/finally` block ensures we release connections
-  even if something goes wrong
-- **Async/Await**: Database operations take time, so we use `async/await` to
-  wait for them to complete
-- **Future-Proofing**: The `runMigrations()` function is ready for future
-  database changes
+The sample data helps you to test your application without needing to manually create records.
 
 </details>
 
-### Step 2: Database Middleware (Making the Database Available to Routes)
+### Database middleware
 
-Middleware is code that runs between receiving a request and sending a response.
-It allows us to add functionality to our application without cluttering our
-route handlers. In this case, we'll create middleware that connects to the
-database and makes it available to all API routes.
+The different routes will need access to the database connection. To avoid code duplication, we can create middleware to inject database connections into request contexts. 
 
-Our database middleware will "attach" the database connection to every request,
-so our API routes can easily access the database.
-
-Create `src/middleware/database.ts`:
+Create a directory called `middleware` in your `src` folder and create a file called `database.ts`:
 
 <details>
-<summary>📄 src/middleware/database.ts (click to expand)</summary>
+<summary>📁 src/middleware/database.ts (click to expand)</summary>
 
 ```typescript
-import { Context } from "@oak/oak";
+import type { Context, Next } from "@oak/oak";
 import { getDatabase } from "../database/connection.ts";
 
+/**
+ * Database middleware that adds database pool to request context
+ * This allows all route handlers to access the database easily
+ */
 export async function databaseMiddleware(
-  ctx: Context, // The request/response object
-  next: () => Promise<unknown>, // The next function to call
+  ctx: Context,
+  next: Next,
 ): Promise<void> {
   try {
-    // Attach database pool to the request context
-    // Now any route can access the database with: ctx.state.db
+    // Add database pool to the request context state
     ctx.state.db = getDatabase();
 
     // Continue to the next middleware or route handler
     await next();
   } catch (error) {
-    // If something goes wrong with the database connection, send an error response
     console.error("❌ Database middleware error:", error);
-    ctx.response.status = 500; // Internal Server Error
+
+    // Return error response if database is unavailable
+    ctx.response.status = 500;
     ctx.response.body = {
+      success: false,
       error: "Database connection failed",
-      message: "Please try again later",
     };
   }
 }
 ```
 
-What's in this code?
-
-- **Middleware Pattern**: This function runs for EVERY request before it reaches
-  our routes
-- **Context State**: `ctx.state` is like a backpack that travels with each
-  request - we're putting the database in the backpack
-- **Error Handling**: If the database is down, we catch the error and send a
-  helpful response instead of crashing
-- **Separation of Concerns**: Routes don't need to worry about getting database
-  connections - the middleware handles it
-
 </details>
 
-### Step 3: API Routes for Leaderboard (The Brain of Our Global Ranking System)
+### Leaderboard API routes
 
-Now we'll create the API endpoints that handle leaderboard operations:
+Our backend will expose a REST API for the leaderboard functionality, so that we can submit and retrieve scores and player data.
 
-1. `GET /api/leaderboard` - Show top players
-2. `POST /api/scores` - Submit a new score
-3. `GET /api/scores/:playerName` - Get a player's personal best scores
-
-Create `src/routes/leaderboard.routes.ts`:
+In your `src/routes` directory, create a file called `leaderboard.routes.ts`:
 
 <details>
-<summary>📄 src/routes/leaderboard.routes.ts (click to expand)</summary>
+<summary>📁 src/routes/leaderboard.routes.ts (click to expand)</summary>
 
 ```typescript
 import { Router } from "@oak/oak";
 import type { Context } from "@oak/oak";
 
-// Create a new router to group our leaderboard-related routes
 const router = new Router();
 
-// 🏆 GET /api/leaderboard - Show the global leaderboard
+/**
+ * GET /api/leaderboard - Fetch global leaderboard
+ * Query parameters:
+ * - limit: number of entries to return (default: 10)
+ */
 router.get("/api/leaderboard", async (ctx: Context) => {
   try {
-    // Get the database pool from our middleware
     const pool = ctx.state.db;
-
-    // Check if client wants a specific number of results (default: 10)
     const limit = parseInt(ctx.request.url.searchParams.get("limit") || "10");
 
-    // Get a connection from the pool
     const client = await pool.connect();
     try {
-      // Complex SQL query that joins high_scores with players table
+      // Query for top scores with player information
       const result = await client.query(
         `
         SELECT 
-          hs.player_name,          -- The name used when submitting the score
-          hs.score,                -- The actual score
-          hs.obstacles_avoided,    -- How many obstacles they jumped
-          hs.created_at,           -- When this score was achieved
-          p.username,              -- Their registered username (if they have one)
-          p.avatar_url             -- Profile picture (for future features)
-        FROM high_scores hs        -- Start with the high_scores table
-        LEFT JOIN players p ON hs.player_id = p.id  -- Connect to players table (if they're registered)
-        ORDER BY hs.score DESC     -- Sort by score (highest first)
-        LIMIT $1                   -- Only return the requested number of results
+          hs.player_name,
+          hs.score,
+          hs.obstacles_avoided,
+          hs.created_at,
+          p.username,
+          p.avatar_url
+        FROM high_scores hs
+        LEFT JOIN players p ON hs.player_id = p.id
+        ORDER BY hs.score DESC
+        LIMIT $1
       `,
-        [limit], // This replaces $1 in the query (prevents SQL injection!)
+        [limit],
       );
 
-      // Transform the database result into a nice JSON response
       ctx.response.body = {
         success: true,
         leaderboard: result.rows.map((row: any, index: number) => ({
-          rank: index + 1, // Calculate rank (1st, 2nd, 3rd...)
-          playerName: row.username || row.player_name, // Use registered name or the name they submitted
-          score: Number(row.score), // Convert to regular number
+          rank: index + 1,
+          playerName: row.username || row.player_name,
+          score: Number(row.score),
           obstaclesAvoided: Number(row.obstacles_avoided || 0),
-          avatarUrl: row.avatar_url, // Profile picture URL
-          date: row.created_at, // When the score was achieved
+          avatarUrl: row.avatar_url,
+          date: row.created_at,
         })),
       };
     } finally {
-      client.release(); // ALWAYS release the connection back to the pool!
+      client.release(); // Always release the client
     }
   } catch (error) {
-    // If anything goes wrong, log it and send an error response
     console.error("❌ Error fetching leaderboard:", error);
     ctx.response.status = 500;
     ctx.response.body = {
@@ -488,87 +436,60 @@ router.get("/api/leaderboard", async (ctx: Context) => {
   }
 });
 
-// 📝 POST /api/scores - Submit a new high score
-router.post("/api/scores", async (ctx: Context) => {
+/**
+ * POST /api/leaderboard - Submit a new high score
+ * Body: { playerName: string, score: number, obstaclesAvoided: number }
+ */
+router.post("/api/leaderboard", async (ctx: Context) => {
   try {
     const pool = ctx.state.db;
-
-    // Extract the JSON data from the request body
     const body = await ctx.request.body.json();
-    const {
-      playerName,
-      score,
-      obstaclesAvoided = 0, // Default to 0 if not provided
-      gameDuration = 0,
-      maxSpeed = 0,
-    } = body;
 
-    // Validate the input data
+    // Validate input data
+    const { playerName, score, obstaclesAvoided = 0 } = body;
+
     if (!playerName || typeof score !== "number" || score < 0) {
-      ctx.response.status = 400; // Bad Request
+      ctx.response.status = 400;
       ctx.response.body = {
         success: false,
-        error: "Invalid player name or score",
+        error: "Invalid score data. playerName and positive score required.",
       };
       return;
     }
 
-    let rank: number;
-    let insertedScore: any;
-
     const client = await pool.connect();
     try {
-      // Insert the new score into the database
+      // Insert new high score
       const result = await client.query(
         `
-        INSERT INTO high_scores (
-          player_name, 
-          score, 
-          obstacles_avoided, 
-          game_duration_seconds,
-          max_speed_reached
-        ) VALUES ($1, $2, $3, $4, $5) 
-        RETURNING *                    -- Return the inserted row
+        INSERT INTO high_scores (player_name, score, obstacles_avoided)
+        VALUES ($1, $2, $3)
+        RETURNING id, created_at
       `,
-        [playerName, score, obstaclesAvoided, gameDuration, maxSpeed],
+        [playerName, Math.floor(score), Math.floor(obstaclesAvoided)],
       );
 
-      // Calculate what rank this score achieved
+      // Check if this is a new personal best by comparing with existing scores
       const rankResult = await client.query(
         `
-        SELECT COUNT(*) + 1 as rank 
-        FROM high_scores 
-        WHERE score > $1              -- Count how many scores are higher
+        SELECT COUNT(*) + 1 as rank
+        FROM high_scores
+        WHERE score > $1
       `,
-        [score],
+        [Math.floor(score)],
       );
 
-      rank = Number(rankResult.rows[0]?.rank) || 1;
-      insertedScore = result.rows[0];
+      ctx.response.body = {
+        success: true,
+        scoreId: result.rows[0].id,
+        rank: Number(rankResult.rows[0].rank),
+        message: "Score submitted successfully!",
+      };
+
+      console.log(`🏆 New score submitted: ${playerName} - ${score}`);
     } finally {
       client.release();
     }
-
-    // Convert BigInt values to regular numbers for JSON serialization
-    const sanitizedScore = {
-      ...insertedScore,
-      id: Number(insertedScore.id),
-      score: Number(insertedScore.score),
-      obstacles_avoided: Number(insertedScore.obstacles_avoided || 0),
-      game_duration_seconds: Number(insertedScore.game_duration_seconds || 0),
-      max_speed_reached: Number(insertedScore.max_speed_reached || 0),
-    };
-
-    ctx.response.body = {
-      success: true,
-      score: sanitizedScore,
-      globalRank: rank,
-      isNewRecord: rank === 1, // Are they the new champion?
-    };
-
-    console.log(
-      `🏆 New high score: ${playerName} scored ${score} (Rank #${rank})`,
-    );
   } catch (error) {
     console.error("❌ Error submitting score:", error);
     ctx.response.status = 500;
@@ -579,344 +500,183 @@ router.post("/api/scores", async (ctx: Context) => {
   }
 });
 
-// 👤 GET /api/scores/:playerName - Get a player's personal best scores
-router.get("/api/scores/:playerName", async (ctx: Context) => {
+export default router;
+```
+
+This code provides two new endpoints:
+
+- GET /api/leaderboard: Fetches the global leaderboard with optional limit parameter
+- POST /api/leaderboard: Submits a new high score with player name and score data
+
+</details>
+
+### Player customization API
+
+We will create endpoints for player customization features, allowing users to save and retrieve their preferences such as dino colors, background themes, sound settings, and difficulty levels.
+
+In your `src/routes` directory, create a file called `customization.routes.ts`:
+
+<details>
+<summary>📁 src/routes/customization.routes.ts (click to expand)</summary>
+
+```typescript
+import { Router } from "@oak/oak";
+import type { Context } from "@oak/oak";
+
+const router = new Router();
+
+/**
+ * GET /api/settings/:playerId - Get player customization settings
+ */
+router.get("/api/settings/:playerId", async (ctx: Context) => {
   try {
     const pool = ctx.state.db;
-
-    // Extract the player name from the URL path
-    const playerName = ctx.request.url.pathname.split("/").pop();
+    const playerId = ctx.params.playerId;
 
     const client = await pool.connect();
     try {
-      // Get the player's top 5 scores
       const result = await client.query(
         `
-        SELECT score, obstacles_avoided, created_at
-        FROM high_scores
-        WHERE player_name = $1        -- Only this player's scores
-        ORDER BY score DESC           -- Highest scores first
-        LIMIT 5                       -- Top 5 only
+        SELECT dino_color, background_theme, sound_enabled, difficulty_preference
+        FROM player_settings
+        WHERE player_id = $1
       `,
-        [playerName],
+        [playerId],
       );
 
-      ctx.response.body = {
-        success: true,
-        playerName,
-        personalBests: result.rows.map((row: any) => ({
-          score: Number(row.score),
-          obstaclesAvoided: Number(row.obstacles_avoided || 0),
-          created_at: row.created_at,
-        })),
-      };
+      if (result.rows.length === 0) {
+        // Return default settings if none exist
+        ctx.response.body = {
+          success: true,
+          settings: {
+            dinoColor: "#4CAF50",
+            backgroundTheme: "desert",
+            soundEnabled: true,
+            difficultyPreference: "normal",
+          },
+        };
+      } else {
+        const settings = result.rows[0];
+        ctx.response.body = {
+          success: true,
+          settings: {
+            dinoColor: settings.dino_color,
+            backgroundTheme: settings.background_theme,
+            soundEnabled: settings.sound_enabled,
+            difficultyPreference: settings.difficulty_preference,
+          },
+        };
+      }
     } finally {
       client.release();
     }
   } catch (error) {
-    console.error("❌ Error fetching player scores:", error);
+    console.error("❌ Error fetching settings:", error);
     ctx.response.status = 500;
     ctx.response.body = {
       success: false,
-      error: "Failed to fetch player scores",
+      error: "Failed to fetch settings",
     };
   }
 });
 
-// Export the router so we can use it in main.ts
-export { router as leaderboardRoutes };
-```
+/**
+ * POST /api/settings - Save player customization settings
+ * Body: { playerId: number, dinoColor: string, backgroundTheme: string, etc. }
+ */
+router.post("/api/settings", async (ctx: Context) => {
+  try {
+    const pool = ctx.state.db;
+    const body = await ctx.request.body.json();
 
-What's in this code?
+    const {
+      playerId,
+      dinoColor = "#4CAF50",
+      backgroundTheme = "desert",
+      soundEnabled = true,
+      difficultyPreference = "normal",
+    } = body;
 
-- **SQL Joins**: The leaderboard query combines data from two tables using
-  `LEFT JOIN`
-- **Query Parameters**: We read `?limit=20` from the URL to customize results
-- **Input Validation**: We check that the score is valid before saving it
-- **SQL Injection Prevention**: Using `$1, $2` placeholders instead of string
-  concatenation
-- **Rank Calculation**: We count how many scores are higher to determine rank
-- **Error Handling**: Each route has try/catch blocks to handle database errors
-  gracefully
-- **Data Transformation**: Converting database results into clean JSON responses
-
-</details>
-
-### Step 4: Customization API Routes (Let Players Make the Game Their Own)
-
-Now we'll create routes that let players customize their game experience. Think
-of this like the settings menu in any modern game - players can choose colors,
-themes, difficulty, etc.
-
-**What we're building:**
-
-- `GET /api/customization/:playerName` - Load a player's saved preferences
-- `POST /api/customization` - Save new customization settings
-- `GET /api/customization/options` - Get all available customization choices
-
-The tricky part here is handling both **registered players** (who have accounts)
-and **anonymous players** (who just want to play). We'll store settings in the
-database for registered players, and use localStorage for anonymous ones.
-
-Create `src/routes/customization.routes.ts`:
-
-<details>
-<summary>📄 src/routes/customization.routes.ts (click to expand)</summary>
-
-```typescript
-import { Router } from "@oak/oak";
-import type { RouterContext } from "@oak/oak";
-
-const router = new Router();
-
-// Get player customization settings
-router.get(
-  "/api/customization/:playerName",
-  async (ctx: RouterContext<"/api/customization/:playerName">) => {
-    try {
-      const pool = ctx.state.db;
-      const playerName = ctx.params.playerName;
-
-      let settings = {
-        dinoColor: "#4CAF50",
-        backgroundTheme: "desert",
-        soundEnabled: true,
-        difficultyPreference: "normal",
-      };
-
-      const client = await pool.connect();
-      try {
-        // First try to find registered player
-        const playerResult = await client.query(
-          `SELECT id FROM players WHERE username = $1`,
-          [playerName],
-        );
-
-        if (playerResult.rows.length > 0) {
-          const playerId = Number(playerResult.rows[0].id);
-          const settingsResult = await client.query(
-            `
-            SELECT dino_color, background_theme, sound_enabled, difficulty_preference
-            FROM player_settings
-            WHERE player_id = $1
-          `,
-            [playerId],
-          );
-
-          if (settingsResult.rows.length > 0) {
-            const row = settingsResult.rows[0];
-            settings = {
-              dinoColor: row.dino_color,
-              backgroundTheme: row.background_theme,
-              soundEnabled: row.sound_enabled,
-              difficultyPreference: row.difficulty_preference,
-            };
-          }
-        } else {
-          // Check localStorage-style settings for anonymous players
-          const anonSettings = ctx.request.url.searchParams.get("settings");
-          if (anonSettings) {
-            try {
-              settings = { ...settings, ...JSON.parse(anonSettings) };
-            } catch {
-              // Use defaults if parsing fails
-            }
-          }
-        }
-      } finally {
-        client.release();
-      }
-
-      ctx.response.body = {
-        success: true,
-        playerName,
-        settings,
-      };
-    } catch (error) {
-      console.error("❌ Error fetching customization:", error);
-      ctx.response.status = 500;
+    // Validate color format (simple hex color validation)
+    const colorRegex = /^#[0-9A-Fa-f]{6}$/;
+    if (!colorRegex.test(dinoColor)) {
+      ctx.response.status = 400;
       ctx.response.body = {
         success: false,
-        error: "Failed to fetch customization settings",
+        error: "Invalid color format. Use hex format like #4CAF50",
       };
+      return;
     }
-  },
-);
 
-// Save player customization settings
-router.post(
-  "/api/customization",
-  async (ctx: RouterContext<"/api/customization">) => {
+    const client = await pool.connect();
     try {
-      const pool = ctx.state.db;
-      const body = await ctx.request.body.json();
-      const {
-        playerName,
-        dinoColor,
-        backgroundTheme,
-        soundEnabled,
-        difficultyPreference,
-      } = body;
-
-      // Validate input
-      const validThemes = ["desert", "forest", "night", "rainbow", "space"];
-
-      if (!playerName || !dinoColor || !validThemes.includes(backgroundTheme)) {
-        ctx.response.status = 400;
-        ctx.response.body = {
-          success: false,
-          error: "Invalid customization data",
-        };
-        return;
-      }
-
-      const client = await pool.connect();
-      try {
-        // Create or find player
-        const playerResult = await client.query(
-          `
-        INSERT INTO players (username) VALUES ($1)
-        ON CONFLICT (username) DO UPDATE SET updated_at = NOW()
-        RETURNING id
-      `,
-          [playerName],
-        );
-
-        const playerId = Number(playerResult.rows[0].id);
-
-        // Save settings
-        await client.query(
-          `
-        INSERT INTO player_settings (
-          player_id, 
-          dino_color, 
-          background_theme, 
-          sound_enabled, 
-          difficulty_preference
-        ) VALUES ($1, $2, $3, $4, $5)
-        ON CONFLICT (player_id) DO UPDATE SET
-          dino_color = $2,
-          background_theme = $3,
-          sound_enabled = $4,
-          difficulty_preference = $5,
+      // Use UPSERT (INSERT ON CONFLICT UPDATE) to handle both new and existing settings
+      await client.query(
+        `
+        INSERT INTO player_settings (player_id, dino_color, background_theme, sound_enabled, difficulty_preference)
+        VALUES ($1, $2, $3, $4, $5)
+        ON CONFLICT (player_id) 
+        DO UPDATE SET 
+          dino_color = EXCLUDED.dino_color,
+          background_theme = EXCLUDED.background_theme,
+          sound_enabled = EXCLUDED.sound_enabled,
+          difficulty_preference = EXCLUDED.difficulty_preference,
           updated_at = NOW()
       `,
-          [
-            playerId,
-            dinoColor,
-            backgroundTheme,
-            soundEnabled,
-            difficultyPreference,
-          ],
-        );
-      } finally {
-        client.release();
-      }
+        [
+          playerId,
+          dinoColor,
+          backgroundTheme,
+          soundEnabled,
+          difficultyPreference,
+        ],
+      );
 
       ctx.response.body = {
         success: true,
-        message: "Customization settings saved successfully",
+        message: "Settings saved successfully!",
       };
 
-      console.log(
-        `🎨 Customization saved for ${playerName}: ${backgroundTheme} theme, ${dinoColor} dino`,
-      );
-    } catch (error) {
-      console.error("❌ Error saving customization:", error);
-      ctx.response.status = 500;
-      ctx.response.body = {
-        success: false,
-        error: "Failed to save customization settings",
-      };
+      console.log(`⚙️ Settings updated for player ${playerId}`);
+    } finally {
+      client.release();
     }
-  },
-);
-
-// Get available customization options
-router.get(
-  "/api/customization/options",
-  async (ctx: RouterContext<"/api/customization/options">) => {
+  } catch (error) {
+    console.error("❌ Error saving settings:", error);
+    ctx.response.status = 500;
     ctx.response.body = {
-      success: true,
-      options: {
-        themes: [
-          {
-            id: "desert",
-            name: "🏜️ Desert",
-            colors: { sky: "#87CEEB", ground: "#DEB887" },
-          },
-          {
-            id: "forest",
-            name: "🌲 Forest",
-            colors: { sky: "#98FB98", ground: "#228B22" },
-          },
-          {
-            id: "night",
-            name: "🌙 Night",
-            colors: { sky: "#191970", ground: "#2F4F4F" },
-          },
-          {
-            id: "rainbow",
-            name: "🌈 Rainbow",
-            colors: { sky: "#FF69B4", ground: "#FFD700" },
-          },
-          {
-            id: "space",
-            name: "🚀 Space",
-            colors: { sky: "#000000", ground: "#696969" },
-          },
-        ],
-        dinoColors: [
-          "#4CAF50",
-          "#FF5722",
-          "#2196F3",
-          "#FF9800",
-          "#9C27B0",
-          "#F44336",
-          "#00BCD4",
-          "#795548",
-        ],
-        difficulties: [
-          { id: "easy", name: "Easy", speedMultiplier: 0.8 },
-          { id: "normal", name: "Normal", speedMultiplier: 1.0 },
-          { id: "hard", name: "Hard", speedMultiplier: 1.3 },
-        ],
-      },
+      success: false,
+      error: "Failed to save settings",
     };
-  },
-);
+  }
+});
 
-export { router as customizationRoutes };
+export default router;
 ```
+
+This code adds two more endpoints:
+- GET /api/settings/:playerId: Retrieves player customization settings by player ID
+- POST /api/settings: Saves or updates player customization settings
 
 </details>
 
-### Step 5: Update Main Server File
+### Update the main server
 
-Update your `src/main.ts` to include database initialization and the new API
-routes:
+Now we need to integrate all these components into our main server file. This will set up the application, initialize the database, and register our routes.
+
+Update your `src/main.ts` file to include the new routes and middleware:
 
 <details>
-<summary>📄 src/main.ts (click to expand)</summary>
+<summary>📁 src/main.ts (click to expand)</summary>
 
 ```typescript
-import { Application } from "jsr:@oak/oak/application";
-import { apiRouter } from "./routes/api.routes.ts";
+// NEW: Add new imports
 import { leaderboardRoutes } from "./routes/leaderboard.routes.ts";
 import { customizationRoutes } from "./routes/customization.routes.ts";
 import { databaseMiddleware } from "./middleware/database.ts";
 import { initializeDatabase } from "./database/migrations.ts";
-import { load } from "jsr:@std/dotenv";
 
-// Load environment variables from root .env file
-await load({ export: true, envPath: "../../.env" });
-
-const PORT = parseInt(Deno.env.get("PORT") || "8000");
-const HOST = Deno.env.get("HOST") || "localhost";
-
-const app = new Application();
-
-// Initialize database on startup
+// NEW: After the application instance is set up, initialize database on startup
 try {
   await initializeDatabase();
 } catch (error) {
@@ -924,7 +684,7 @@ try {
   console.log("⚠️ Continuing without database (some features may not work)");
 }
 
-// CORS middleware for API requests
+// NEW: Update the middleware to handle CORS for API requests
 app.use(async (context, next) => {
   context.response.headers.set("Access-Control-Allow-Origin", "*");
   context.response.headers.set(
@@ -940,52 +700,21 @@ app.use(async (context, next) => {
     context.response.status = 200;
     return;
   }
-
   await next();
 });
 
-// Database middleware for API routes
+// NEW: Add database middleware for API routes
 app.use(databaseMiddleware);
 
-// Serve static files from public directory
-app.use(async (context, next) => {
-  try {
-    // Special route for leaderboard page
-    if (context.request.url.pathname === "/leaderboard") {
-      await context.send({
-        root: `${Deno.cwd()}/public`,
-        path: "leaderboard.html",
-      });
-      return;
-    }
-
-    await context.send({
-      root: `${Deno.cwd()}/public`,
-      index: "index.html",
-    });
-  } catch {
-    await next();
-  }
-});
-
-// API routes
-app.use(apiRouter.routes());
-app.use(apiRouter.allowedMethods());
-
+// NEW: Add more API routes for leaderboard and customization
 app.use(leaderboardRoutes.routes());
 app.use(leaderboardRoutes.allowedMethods());
 
 app.use(customizationRoutes.routes());
 app.use(customizationRoutes.allowedMethods());
 
-app.listen({
-  port: PORT,
-});
-
-console.log(`🦕 Server is running on http://${HOST}:${PORT}`);
-console.log(`🎯 Visit http://${HOST}:${PORT} to see the game`);
+// NEW: Add helpful console logs for debugging
 console.log(`🏆 Global Leaderboard at http://${HOST}:${PORT}/leaderboard`);
-console.log(`🔧 API health check at http://${HOST}:${PORT}/api/health`);
 console.log(`🏆 Leaderboard API at http://${HOST}:${PORT}/api/leaderboard`);
 console.log(
   `🎨 Customization API at http://${HOST}:${PORT}/api/customization/options`,
@@ -994,815 +723,815 @@ console.log(
 
 </details>
 
-### Step 6: Frontend Integration (Connecting Your Game to the Database)
+## Frontend implementation
 
-Now for the exciting part - making your Stage 3 game talk to the database! This
-is where we transform your single-player game into a connected, multiplayer
-experience.
+### Update index.html
 
-**The Big Picture:** Your game currently stores high scores in `localStorage`
-(which only you can see). Now we'll:
+We'll add a leaderboard to the `index.html` file and create a modal for customization options.
 
-1. **Ask for player names** when someone first plays
-2. **Send scores to our database** when games end
-3. **Load global leaderboards** to show worldwide competition
-4. **Save custom themes/colors** so players can personalize their experience
-
-#### Understanding the Frontend → Backend Flow
-
-```text
-Game Over → JavaScript collects score data → Sends HTTP POST to /api/scores → Database saves it → Updates global leaderboard
-```
-
-Let's update your `public/js/game.js` step by step:
-
-#### Step 6.1: Add Database Integration Methods to Your Game Class
-
-**Add these new methods to your existing DinoGame class** (don't replace your
-whole file!):
-
-```javascript
-// 💾 Load player settings from database or localStorage  
-async loadPlayerSettings() {
-  try {
-    if (this.playerName) {
-      // If player has a name, try to load their settings from database
-      console.log(`🔄 Loading settings for ${this.playerName}...`);
-      const response = await fetch(`/api/customization/${this.playerName}`);
-      if (response.ok) {
-        const data = await response.json();
-        this.settings = data.settings;
-        this.applyCustomizations();
-        console.log(`✅ Settings loaded for ${this.playerName}`);
-      }
-    } else {
-      // For anonymous users, load from browser's localStorage
-      const savedSettings = localStorage.getItem("gameSettings");
-      if (savedSettings) {
-        this.settings = { ...this.settings, ...JSON.parse(savedSettings) };
-        this.applyCustomizations();
-        console.log("✅ Local settings loaded");
-      }
-    }
-  } catch (error) {
-    console.log("⚠️ Failed to load player settings:", error);
-    // Not a big deal - we'll just use defaults
-  }
-}
-
-// 🏆 Submit score to database (the most important new feature!)
-async submitScoreToDatabase(gameDuration) {
-  if (!this.playerName) {
-    console.log("⚠️ No player name - score not submitted to database");
-    return;
-  }
-
-  try {
-    console.log(`📤 Submitting score for ${this.playerName}: ${Math.floor(this.score)}`);
-    
-    const response = await fetch("/api/scores", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        playerName: this.playerName,
-        score: Math.floor(this.score),
-        obstaclesAvoided: this.obstaclesAvoided,
-        gameDuration: gameDuration,
-        maxSpeed: this.maxSpeedReached,
-      }),
-    });
-
-    if (response.ok) {
-      const data = await response.json();
-      if (data.isNewRecord) {
-        console.log("🏆 NEW GLOBAL RECORD!");
-        this.showNewRecordMessage();
-      }
-      console.log(`📊 Score submitted! Global rank: #${data.globalRank}`);
-      // Refresh the leaderboard to show the new score
-      this.loadGlobalLeaderboard();
-    } else {
-      console.error("❌ Failed to submit score - server error");
-    }
-  } catch (error) {
-    console.error("❌ Failed to submit score - network error:", error);
-    // Game continues normally even if score submission fails
-  }
-}
-
-// 🏅 Load global leaderboard (show top players worldwide)
-async loadGlobalLeaderboard() {
-  try {
-    const response = await fetch("/api/leaderboard?limit=5");
-    if (response.ok) {
-      const data = await response.json();
-      this.displayLeaderboard(data.leaderboard);
-      console.log("📊 Global leaderboard updated");
-    }
-  } catch (error) {
-    console.log("⚠️ Failed to load global leaderboard:", error);
-  }
-}
-
-// 🎨 Apply customization settings to the game
-applyCustomizations() {
-  // Apply difficulty multiplier to game speed
-  const difficulties = { easy: 0.8, normal: 1.0, hard: 1.3 };
-  const multiplier = difficulties[this.settings.difficultyPreference] || 1.0;
-  this.initialGameSpeed = 3 * multiplier;
-  this.gameSpeed = this.initialGameSpeed;
-
-  console.log(`🎨 Applied customizations: ${this.settings.backgroundTheme} theme, ${this.settings.dinoColor} dino, ${this.settings.difficultyPreference} difficulty`);
-}
-```
-
-#### Step 6.2: Update Your Existing Game Methods
-
-**Modify your existing `gameOver()` method** to include database submission:
-
-```javascript
-// Update your existing gameOver method to include database submission
-gameOver() {
-  if (this.gameState === "gameOver") return;
-  
-  // Calculate how long the game lasted
-  const gameDuration = Math.floor((Date.now() - this.gameStartTime) / 1000);
-  
-  this.gameState = "gameOver";
-  
-  // 🆕 NEW: Submit to database (this is the big addition!)
-  this.submitScoreToDatabase(gameDuration);
-  
-  // Keep existing local high score logic
-  if (this.score > this.highScore) {
-    this.highScore = this.score;
-    this.saveHighScore(); // Your existing localStorage save
-  }
-  
-  this.updateHighScore();
-  this.updateStatus("Game Over! Click to restart");
-}
-```
-
-**💡 What's happening here?**
-
-- **Async/Await**: We use these keywords when talking to the server (database
-  operations take time)
-- **Error Handling**: If the database is down, the game still works - we just
-  log the error
-- **Fetch API**: This is how JavaScript talks to our backend routes
-- **JSON**: We convert our game data to JSON format that the server can
-  understand
-- **Progressive Enhancement**: The game works offline, but gets better when
-  connected to the database
-
-```javascript
-// Load player settings from database or localStorage
-async loadPlayerSettings() {
-  try {
-    if (this.playerName) {
-      const response = await fetch(`/api/customization/${this.playerName}`);
-      if (response.ok) {
-        const data = await response.json();
-        this.settings = data.settings;
-        this.applyCustomizations();
-      }
-    } else {
-      // Load from localStorage for anonymous users
-      const savedSettings = localStorage.getItem("gameSettings");
-      if (savedSettings) {
-        this.settings = { ...this.settings, ...JSON.parse(savedSettings) };
-        this.applyCustomizations();
-      }
-    }
-  } catch (error) {
-    console.log("Failed to load player settings:", error);
-  }
-}
-
-// Submit score to database
-async submitScoreToDatabase(gameDuration) {
-  if (!this.playerName) return;
-
-  try {
-    const response = await fetch("/api/scores", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        playerName: this.playerName,
-        score: Math.floor(this.score),
-        obstaclesAvoided: this.obstaclesAvoided,
-        gameDuration: gameDuration,
-        maxSpeed: this.maxSpeedReached,
-      }),
-    });
-
-    if (response.ok) {
-      const data = await response.json();
-      if (data.isNewRecord) {
-        console.log("🏆 NEW GLOBAL RECORD!");
-        this.showNewRecordMessage();
-      }
-      console.log(`📊 Score submitted! Global rank: #${data.globalRank}`);
-      // Refresh leaderboard
-      this.loadGlobalLeaderboard();
-    }
-  } catch (error) {
-    console.error("Failed to submit score:", error);
-  }
-}
-
-// Load global leaderboard
-async loadGlobalLeaderboard() {
-  try {
-    const response = await fetch("/api/leaderboard?limit=5");
-    if (response.ok) {
-      const data = await response.json();
-      this.displayLeaderboard(data.leaderboard);
-    }
-  } catch (error) {
-    console.log("Failed to load leaderboard:", error);
-  }
-}
-
-// Apply customization settings
-applyCustomizations() {
-  // Apply difficulty multiplier
-  const difficulties = { easy: 0.8, normal: 1.0, hard: 1.3 };
-  this.initialGameSpeed = 3 * (difficulties[this.settings.difficultyPreference] || 1.0);
-  this.gameSpeed = this.initialGameSpeed;
-
-  // Background color changes are applied in the render method
-  console.log(`🎨 Applied customizations: ${this.settings.backgroundTheme} theme, ${this.settings.dinoColor} dino`);
-}
-
-// Update your gameOver method to include database submission
-gameOver() {
-  if (this.gameState === "gameOver") return;
-  
-  const gameDuration = Math.floor((Date.now() - this.gameStartTime) / 1000);
-  
-  this.gameState = "gameOver";
-  
-  // Submit to database
-  this.submitScoreToDatabase(gameDuration);
-  
-  // Update local high score
-  if (this.score > this.highScore) {
-    this.highScore = this.score;
-    this.saveHighScore();
-  }
-  
-  this.updateHighScore();
-  this.updateStatus("Game Over! Click to restart");
-}
-
-// Update your render method to use theme colors
-render() {
-  // Get theme colors
-  const theme = this.themes[this.settings.backgroundTheme] || this.themes.desert;
-  
-  // Clear canvas with theme sky color
-  this.ctx.fillStyle = theme.sky;
-  this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-
-  // Draw ground with theme ground color
-  this.ctx.fillStyle = theme.ground;
-  this.ctx.fillRect(0, this.groundY, this.canvas.width, this.canvas.height - this.groundY);
-  
-  // ... rest of your render code
-}
-
-// Update your drawDino method to use custom color
-drawDino() {
-  // Use player's custom dino color
-  this.ctx.fillStyle = this.settings.dinoColor;
-  
-  // ... rest of your dino drawing code
-}
-```
-
-#### Add Player Name Modal
-
-Add this HTML to your `public/index.html` before the closing `</body>` tag:
+<details>
+<summary>📁 public/index.html (click to expand)</summary>
 
 ```html
-<!-- Player Name Modal -->
-<div id="playerModal" class="modal">
-  <div class="modal-content">
-    <h3>🎮 Enter Your Name</h3>
-    <p>Join the global leaderboard!</p>
-    <input
-      type="text"
-      id="playerNameInput"
-      placeholder="Your name (1-20 characters)"
-      maxlength="20"
-      class="form-input"
-    >
-    <div class="modal-buttons">
-      <button onclick="savePlayerName()" class="btn btn-primary">
-        Save & Play 🦕
-      </button>
-    </div>
-    <p class="small-text">Your name will be shown on the global leaderboard</p>
-  </div>
-</div>
+ <!-- NEW: Global Leaderboard Section -->
+      <section class="container">
+        <h3>Global Leaderboard</h3>
+        <div class="leaderboard-container">
+          <div class="leaderboard-list" id="leaderboardList">
+            <div class="loading">Loading leaderboard...</div>
+          </div>
+          <div style="text-align: center; margin-top: 15px">
+            <a href="/leaderboard" class="btn btn-primary btn-block"
+            >View Full Leaderboard</a>
+          </div>
+        </div>
+      </section>
 
-<!-- Customization Modal -->
-<div id="customizationModal" class="modal">
-  <div class="modal-content">
-    <h3>🎨 Customize Your Game</h3>
+      <!-- NEW: Player Name Modal -->
+      <div class="modal" id="playerModal">
+        <div class="modal-content">
+          <h3>🎮 Welcome to Dino Runner!</h3>
+          <p>
+            Enter your name to save scores and compete on the global
+            leaderboard:
+          </p>
+          <input
+            type="text"
+            id="playerNameInput"
+            placeholder="Your name"
+            maxlength="20"
+          />
+          <div class="modal-buttons">
+            <button onclick="savePlayerName()" class="btn btn-primary">
+              Save & Play
+            </button>
+            <button
+              onclick="closeModal('playerModal')"
+              class="btn btn-secondary"
+            >
+              Play Anonymous
+            </button>
+          </div>
+        </div>
+      </div>
 
-    <div class="form-group">
-      <label for="dinoColorPicker">Dino Color:</label>
-      <input
-        type="color"
-        id="dinoColorPicker"
-        value="#4CAF50"
-        class="color-picker"
-      >
-    </div>
+      <!-- NEW: Customization Modal -->
+      <div class="modal" id="customizationModal">
+        <div class="modal-content">
+          <h3>🎨 Customize Your Game</h3>
 
-    <div class="form-group">
-      <label for="backgroundTheme">Background Theme:</label>
-      <select id="backgroundTheme" class="form-select">
-        <option value="desert">🏜️ Desert</option>
-        <option value="forest">🌲 Forest</option>
-        <option value="night">🌙 Night</option>
-        <option value="rainbow">🌈 Rainbow</option>
-        <option value="space">🚀 Space</option>
-      </select>
-    </div>
+          <div class="customization-options">
+            <div class="option-group">
+              <label for="dinoColorPicker">Dino Color:</label>
+              <input type="color" id="dinoColorPicker" value="#4CAF50" />
+            </div>
 
-    <div class="form-group">
-      <label for="difficultyPreference">Difficulty:</label>
-      <select id="difficultyPreference" class="form-select">
-        <option value="easy">😌 Easy (Slower)</option>
-        <option value="normal">😐 Normal</option>
-        <option value="hard">😤 Hard (Faster)</option>
-      </select>
-    </div>
+            <div class="option-group">
+              <label for="backgroundTheme">Background Theme:</label>
+              <select id="backgroundTheme">
+                <option value="desert">🏜️ Desert</option>
+                <option value="forest">🌲 Forest</option>
+                <option value="night">🌙 Night</option>
+                <option value="rainbow">🌈 Rainbow</option>
+                <option value="space">🚀 Space</option>
+              </select>
+            </div>
 
-    <div class="form-group">
-      <label class="checkbox-label">
-        <input type="checkbox" id="soundEnabled" checked>
-        🔊 Enable Sound Effects
-      </label>
-    </div>
+            <div class="option-group">
+              <label for="difficultyPreference">Difficulty:</label>
+              <select id="difficultyPreference">
+                <option value="easy">😊 Easy</option>
+                <option value="normal">😐 Normal</option>
+                <option value="hard">😈 Hard</option>
+              </select>
+            </div>
+          </div>
 
-    <div class="modal-buttons">
-      <button onclick="saveCustomization()" class="btn btn-primary">
-        Save Settings ✅
-      </button>
-      <button
-        onclick="closeModal('customizationModal')"
-        class="btn btn-secondary"
-      >
-        Cancel
-      </button>
-    </div>
-  </div>
-</div>
+          <div class="modal-buttons">
+            <button onclick="saveCustomization()" class="btn btn-primary">
+              Save Changes
+            </button>
+            <button
+              onclick="closeModal('customizationModal')"
+              class="btn btn-secondary"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      </div>
 ```
 
-#### Create Leaderboard Page
+The modal system provides popup interfaces for customization and leaderboard
+views. We use semantic HTML with proper ARIA attributes for accessibility.
 
-Create `public/leaderboard.html`:
+</details>
+
+### Make a new page for the leaderboard
+
+We'll make a new HTML file for the leaderboard, which will live at `/leaderboard`. We'll use 
+
+Create a new file called `leaderboard.html` in the `public` directory to display the global leaderboard:
+
+<details>
+<summary>📁 public/leaderboard.html (click to expand)</summary>
 
 ```html
-<!DOCTYPE html>
+ <!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link
+      rel="preload"
+      href="https://demo-styles.deno.deno.net/fonts/Moranga-Regular.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <link
+      rel="preload"
+      href="https://demo-styles.deno.deno.net/fonts/Moranga-Medium.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <link
+      rel="preload"
+      href="https://demo-styles.deno.deno.net/fonts/Recursive_Variable.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
     <link rel="stylesheet" href="https://demo-styles.deno.deno.net/styles.css">
     <link rel="stylesheet" href="css/styles.css">
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
     <title>Dino Runner - Global Leaderboard</title>
   </head>
+
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  </head>
+
   <body>
     <main class="leaderboard-container">
       <header>
         <h1>🏆 Global Leaderboard</h1>
         <p>Top players from around the world</p>
       </header>
-
       <nav>
         <a href="/" class="btn">🎮 Play Game</a>
-        <button onclick="refreshLeaderboard()" class="btn btn-secondary">
+        <button
+          onclick="refreshLeaderboard()"
+          class="btn btn-secondary refresh-btn"
+        >
           🔄 Refresh
         </button>
       </nav>
 
-      <section class="leaderboard-section">
-        <div class="leaderboard-list" id="leaderboardList">
-          <div class="loading">Loading leaderboard...</div>
+      <section class="container" id="leaderboard-content">
+        <div class="loading">
+          <div>🦕 Loading leaderboard...</div>
         </div>
       </section>
 
-      <footer>
-        <p>🦕 Dino Runner - Stage 4: Database Integration</p>
-      </footer>
+      <div class="last-updated" id="last-updated"></div>
     </main>
 
-    <script>
-      // Load and display leaderboard
-      async function loadLeaderboard() {
-        try {
-          const response = await fetch("/api/leaderboard?limit=50");
-          if (response.ok) {
-            const data = await response.json();
-            displayLeaderboard(data.leaderboard);
-          } else {
-            displayError("Failed to load leaderboard");
-          }
-        } catch (error) {
-          console.error("Error loading leaderboard:", error);
-          displayError("Unable to connect to server");
-        }
-      }
-
-      function displayLeaderboard(leaderboard) {
-        const container = document.getElementById("leaderboardList");
-
-        if (!leaderboard || leaderboard.length === 0) {
-          container.innerHTML =
-            '<div class="no-scores">No scores yet. Be the first!</div>';
-          return;
-        }
-
-        const html = leaderboard.map((entry) => {
-          let rankClass = "";
-          if (entry.rank === 1) rankClass = "gold";
-          else if (entry.rank === 2) rankClass = "silver";
-          else if (entry.rank === 3) rankClass = "bronze";
-
-          return `
-          <div class="leaderboard-item">
-            <div class="leaderboard-rank ${rankClass}">#${entry.rank}</div>
-            <div class="leaderboard-name">${entry.playerName}</div>
-            <div class="leaderboard-score">${entry.score.toLocaleString()}</div>
-            <div class="leaderboard-obstacles">${
-            entry.obstaclesAvoided || 0
-          } obstacles</div>
-            <div class="leaderboard-date">${
-            new Date(entry.date).toLocaleDateString()
-          }</div>
-          </div>
-        `;
-        }).join("");
-
-        container.innerHTML = html;
-      }
-
-      function displayError(message) {
-        const container = document.getElementById("leaderboardList");
-        container.innerHTML =
-          `<div class="error-message">⚠️ ${message}</div>`;
-      }
-
-      function refreshLeaderboard() {
-        document.getElementById("leaderboardList").innerHTML =
-          '<div class="loading">Refreshing...</div>';
-        loadLeaderboard();
-      }
-
-      // Load leaderboard when page loads
-      document.addEventListener("DOMContentLoaded", loadLeaderboard);
-    </script>
+    <script src="js/leaderboard.js" type="module"></script>
   </body>
 </html>
 ```
 
-### Step 7: Enhanced CSS Styles
+</details>
 
-Add these styles to your `public/css/styles.css` to support the new features:
+### Enhanced CSS for modals and leaderboards
 
-```css
-/* Modal Styles */
-.modal {
-  display: none;
-  position: fixed;
-  z-index: 1000;
-  left: 0;
-  top: 0;
-  width: 100%;
-  height: 100%;
-  background-color: rgba(0, 0, 0, 0.8);
-  animation: fadeIn 0.3s ease-in-out;
-}
+Updated styles for the leaderboard and modals and for the leaderboard page are available in [this CSS file](https://raw.githubusercontent.com/thisisjofrank/game-tutorial-stage-4/refs/heads/main/public/css/styles.css).
 
-.modal.show {
-  display: flex !important;
-  align-items: center;
-  justify-content: center;
-}
+### Enhanced JavaScript game engine
 
-.modal-content {
-  background: #fff;
-  padding: 30px;
-  border-radius: 15px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-  max-width: 400px;
-  width: 90%;
-  text-align: center;
-}
+The Stage 4 game engine builds upon Stage 3 with significant enhancements for database integration and player customization. We will add:
 
-.modal-content h3 {
-  color: #333;
-  margin-bottom: 20px;
-}
+#### Player Management System
 
-.form-input {
-  width: 100%;
-  padding: 12px;
-  margin: 10px 0;
-  border: 2px solid #ddd;
-  border-radius: 8px;
-  font-size: 16px;
-}
+- Player name prompt and storage
+- Player ID generation for database operations
+- Persistent player identification across sessions
 
-.form-input:focus {
-  border-color: #4caf50;
-  outline: none;
-}
+#### Global Leaderboard Integration
 
-.modal-buttons {
-  display: flex;
-  gap: 10px;
-  justify-content: center;
-  margin-top: 20px;
-}
+- Real-time score submission to database
+- Automatic leaderboard updates after each game
+- Global ranking display with player names and scores
 
-/* Customization Form Styles */
-.form-group {
-  margin: 15px 0;
-  text-align: left;
-}
 
-.form-group label {
-  display: block;
-  margin-bottom: 5px;
-  font-weight: bold;
-  color: #333;
-}
+#### Player Settings Management
 
-.form-select {
-  width: 100%;
-  padding: 10px;
-  border: 2px solid #ddd;
-  border-radius: 8px;
-  font-size: 14px;
-}
+- Dino color customization with hex color picker
+- Background theme selection (desert, forest, night, rainbow, space)
+- Sound preferences toggle
+- Difficulty level selection (easy, normal, hard)
 
-.color-picker {
-  width: 60px;
-  height: 40px;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-}
+#### Theme System
 
-.checkbox-label {
-  display: flex !important;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-}
+- Dynamic canvas background updates based on selected theme
+- Color gradient generation for different environments
+- Visual feedback for theme changes
 
-.checkbox-label input[type="checkbox"] {
-  width: 18px;
-  height: 18px;
-}
+#### Difficulty Scaling
 
-/* Leaderboard Styles */
-.leaderboard-container {
-  max-width: 800px;
-  margin: 0 auto;
-  padding: 20px;
-}
+- Configurable game speed multipliers
+- Adaptive obstacle spawn rates
+- Personalized challenge levels
 
-.leaderboard-section {
-  background: #f9f9f9;
-  border-radius: 15px;
-  padding: 20px;
-  margin: 20px 0;
-}
+#### RESTful API Integration
 
-.leaderboard-item {
-  display: grid;
-  grid-template-columns: 60px 1fr 100px 120px 120px;
-  gap: 15px;
-  align-items: center;
-  padding: 12px;
-  margin: 5px 0;
-  background: white;
-  border-radius: 8px;
-  border-left: 4px solid #ddd;
-}
+- Fetch player settings from `/api/settings/:playerId`
+- Save customization preferences to `/api/settings`
+- Submit scores to `/api/leaderboard`
+- Load global leaderboard from `/api/leaderboard`
 
-.leaderboard-rank {
-  font-size: 18px;
-  font-weight: bold;
-  text-align: center;
-  padding: 8px;
-  border-radius: 50%;
-  background: #f0f0f0;
-  color: #666;
-}
+#### Error Handling & Graceful Degradation
 
-.leaderboard-rank.gold {
-  background: linear-gradient(135deg, #ffd700, #ffa500);
-  color: white;
-  box-shadow: 0 2px 8px rgba(255, 215, 0, 0.3);
-}
+- Network error recovery
+- Offline mode fallback
+- User-friendly error messages
 
-.leaderboard-rank.silver {
-  background: linear-gradient(135deg, #c0c0c0, #808080);
-  color: white;
-  box-shadow: 0 2px 8px rgba(192, 192, 192, 0.3);
-}
+<details>
+<summary>📁 public/js/game.js (click to expand)</summary>
 
-.leaderboard-rank.bronze {
-  background: linear-gradient(135deg, #cd7f32, #a0522d);
-  color: white;
-  box-shadow: 0 2px 8px rgba(205, 127, 50, 0.3);
-}
+```javascript
+// Stage 4: Enhanced game engine with database integration and customization
+// Key additions from Stage 3:
+// - Player management system with persistent names
+// - Database API integration for scores and settings
+// - Customization system with themes and preferences
+// - Global leaderboard with real-time updates
+// - Enhanced UI with modals and better user experience
 
-.leaderboard-name {
-  font-weight: bold;
-  color: #333;
-}
+class DinoGame {
+  constructor() {
+    // ... existing canvas and UI element initialization ...
 
-.leaderboard-score {
-  font-size: 18px;
-  font-weight: bold;
-  color: #4caf50;
-  text-align: right;
-}
+    // NEW: Player data tracking for database integration
+    this.playerName = localStorage.getItem("playerName") || null;
+    this.obstaclesAvoided = 0;
+    this.gameStartTime = 0;
+    this.maxSpeedReached = 0;
 
-.leaderboard-obstacles {
-  color: #666;
-  font-size: 14px;
-  text-align: center;
-}
+    // NEW: Customization settings with defaults
+    this.settings = {
+      dinoColor: "#4CAF50",
+      backgroundTheme: "desert", 
+      soundEnabled: true,
+      difficultyPreference: "normal",
+    };
 
-.leaderboard-date {
-  color: #999;
-  font-size: 12px;
-  text-align: right;
-}
+    // NEW: Theme system for visual customization
+    this.themes = {
+      desert: { sky: "#87CEEB", ground: "#DEB887" },
+      forest: { sky: "#98FB98", ground: "#228B22" },
+      night: { sky: "#191970", ground: "#2F4F4F" },
+      rainbow: { sky: "#FF69B4", ground: "#FFD700" },
+      space: { sky: "#000000", ground: "#696969" },
+    };
 
-/* New Record Animation */
-.new-record-message {
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  background: linear-gradient(135deg, #ffd700, #ffa500);
-  color: white;
-  padding: 20px 40px;
-  border-radius: 15px;
-  font-size: 24px;
-  font-weight: bold;
-  z-index: 1000;
-  animation: newRecord 3s ease-in-out;
-  box-shadow: 0 4px 20px rgba(255, 215, 0, 0.5);
-}
-
-@keyframes newRecord {
-  0% {
-    transform: translate(-50%, -50%) scale(0.5);
-    opacity: 0;
-  }
-  50% {
-    transform: translate(-50%, -50%) scale(1.1);
-    opacity: 1;
-  }
-  100% {
-    transform: translate(-50%, -50%) scale(1);
-    opacity: 0;
-  }
-}
-
-/* Loading and Error States */
-.loading {
-  text-align: center;
-  padding: 40px;
-  color: #666;
-  font-style: italic;
-}
-
-.error-message {
-  text-align: center;
-  padding: 40px;
-  color: #e74c3c;
-  background: #fdf2f2;
-  border-radius: 8px;
-  border: 1px solid #f5c6cb;
-}
-
-.no-scores {
-  text-align: center;
-  padding: 40px;
-  color: #999;
-  font-style: italic;
-}
-
-/* Responsive Design */
-@media (max-width: 768px) {
-  .leaderboard-item {
-    grid-template-columns: 50px 1fr 80px;
-    gap: 10px;
+    // ... existing game state initialization ...
   }
 
-  .leaderboard-obstacles,
-  .leaderboard-date {
-    display: none;
+  init() {
+    // ... existing initialization ...
+    
+    // NEW: Load player settings from database
+    this.loadPlayerSettings();
+    // NEW: Load and display global leaderboard
+    this.loadGlobalLeaderboard();
+    // NEW: Show player name prompt if needed
+    this.showPlayerNamePrompt();
   }
 
-  .modal-content {
-    margin: 20px;
-    padding: 20px;
+  // NEW: Database API integration methods
+  async loadPlayerSettings() {
+    // Fetch player customization settings from API
+    // Apply settings to game (colors, themes, difficulty)
   }
 
-  .modal-buttons {
-    flex-direction: column;
+  async savePlayerSettings() {
+    // Save current settings to database via API
+    // Handle network errors gracefully
   }
+
+  async loadGlobalLeaderboard() {
+    // Fetch top scores from global leaderboard API
+    // Update UI with current rankings
+  }
+
+  async submitScoreToDatabase(gameDuration) {
+    // Submit final score with player statistics
+    // Handle new record notifications
+    // Refresh leaderboard after submission
+  }
+
+  // NEW: Customization system methods
+  applyCustomizations() {
+    // Apply selected theme to canvas background
+    // Adjust difficulty multipliers based on preference
+    // Update visual elements with custom colors
+  }
+
+  showPlayerNamePrompt() {
+    // Display modal for new players to enter name
+    // Handle player identification for database
+  }
+
+  // NEW: Enhanced game tracking
+  startGame() {
+    // ... existing game start logic ...
+    
+    // NEW: Initialize tracking variables
+    this.obstaclesAvoided = 0;
+    this.gameStartTime = Date.now();
+    this.maxSpeedReached = this.gameSpeed;
+  }
+
+  updateObstacles() {
+    // ... existing obstacle logic ...
+    
+    // NEW: Count avoided obstacles for statistics
+    if (obstacle.x + obstacle.width < 0) {
+      this.obstacles.splice(i, 1);
+      this.obstaclesAvoided++; // Track for database submission
+      this.score += 10;
+    }
+  }
+
+  async gameOver() {
+    // ... existing game over logic ...
+    
+    // NEW: Calculate game duration and submit to database
+    const gameDuration = Math.floor((Date.now() - this.gameStartTime) / 1000);
+    await this.submitScoreToDatabase(gameDuration);
+  }
+
+  // NEW: Enhanced visual rendering with customization
+  drawDino() {
+    // Use customizable dino color from settings
+    this.ctx.fillStyle = this.settings.dinoColor;
+    // ... existing drawing logic with custom colors ...
+  }
+
+  // NEW: Global UI interaction functions for modals
+  // openModal(), closeModal(), saveCustomization(), etc.
 }
+
+// NEW: Global leaderboard management functions
+window.loadLeaderboard = async function() {
+  // Fetch and display leaderboard data
+};
+
+// NEW: Player customization functions  
+window.openCustomization = function() {
+  // Open customization modal with current settings
+};
+
+window.saveCustomization = function() {
+  // Save new customization preferences
+};
 ```
 
-## Running Your Stage 4 Game
+</details>
 
-### 1. Set Up Your Database
+Next we'll implement each of the new methods we just set up.
 
-1. **Create a Neon account** at [neon.tech](https://neon.tech)
-2. **Create a new project** and copy your connection string
-3. **Update your .env file** with the DATABASE_URL
+### loadPlayerSettings()
 
-### 2. Start the Development Server
+<details><summary>📁 public/js/game.js (continued)</summary>
 
-```bash
-deno task dev
+```javascript
+  async loadPlayerSettings() {
+    try {
+      // Check if player has a registered name for database lookup
+      if (this.playerName) {
+        // Attempt to fetch player's customization settings from the database API
+        const response = await fetch(`/api/customization/${this.playerName}`);
+        
+        // If the API request was successful (status 200-299)
+        if (response.ok) {
+          // Parse the JSON response containing the player's settings
+          const data = await response.json();
+          
+          // Replace current settings with the retrieved database settings
+          this.settings = data.settings;
+          
+          // Apply the loaded settings to the game (colors, themes, difficulty)
+          this.applyCustomizations();
+        }
+        // Note: If response is not ok, we fall through to use default settings
+      } else {
+        // For anonymous users (no player name), fall back to browser localStorage
+        const savedSettings = localStorage.getItem("gameSettings");
+        
+        // If settings exist in localStorage, load them
+        if (savedSettings) {
+          // Merge saved settings with defaults (spread operator preserves defaults for missing keys)
+          this.settings = { ...this.settings, ...JSON.parse(savedSettings) };
+          
+          // Apply the loaded local settings to the game
+          this.applyCustomizations();
+        }
+        // Note: If no localStorage settings exist, game uses constructor defaults
+      }
+    } catch (error) {
+      // Handle any network errors, JSON parsing errors, or API failures gracefully
+      // Game continues with default settings rather than crashing
+      console.log("Using default settings:", error);
+    }
+  }
+```
+</details>
+
+### applyCustomizations()
+
+<details><summary>📁 public/js/game.js (continued)</summary>
+
+```javascript
+  applyCustomizations() {
+    // === THEME CUSTOMIZATION ===
+    // Get the selected theme colors from the themes object, with desert as fallback
+    const theme = this.themes[this.settings.backgroundTheme] ||
+      this.themes.desert;
+    
+    // Apply a CSS gradient background to the canvas element
+    // Creates a sky-to-ground effect: sky color for top 75%, ground color for bottom 25%
+    this.canvas.style.background =
+      `linear-gradient(to bottom, ${theme.sky} 0%, ${theme.sky} 75%, ${theme.ground} 75%, ${theme.ground} 100%)`;
+
+    // === DIFFICULTY CUSTOMIZATION ===
+    // Define speed multipliers for each difficulty level
+    // Easy: 20% slower, Normal: standard speed, Hard: 30% faster
+    const difficultyMultipliers = { easy: 0.8, normal: 1.0, hard: 1.3 };
+    
+    // Calculate the base game speed by applying the difficulty multiplier to base speed (3)
+    // Uses fallback of 1.0 if difficulty preference is invalid
+    this.initialGameSpeed = 3 *
+      (difficultyMultipliers[this.settings.difficultyPreference] || 1.0);
+    
+    // Update the current game speed to match the new initial speed
+    // This affects obstacle movement speed and overall game pace
+    this.gameSpeed = this.initialGameSpeed;
+
+    // Log the applied customizations for debugging and user feedback
+    console.log(
+      `🎨 Applied theme: ${this.settings.backgroundTheme}, difficulty: ${this.settings.difficultyPreference}`,
+    );
+  }
+
 ```
 
-Your game will be available at:
+</details>
 
-- **Main Game**: `http://localhost:8000`
-- **Global Leaderboard**: `http://localhost:8000/leaderboard`
-- **API Health Check**: `http://localhost:8000/api/health`
+### savePlayerSettings()
 
-### 3. Test the Features
+<details><summary>📁 public/js/game.js (continued)</summary>
 
-- **Play the game** and enter your name when prompted
-- **Submit high scores** that get saved to the PostgreSQL database
-- **View the global leaderboard** to see all players' scores
-- **Customize your game** with different themes, colors, and difficulty
-- **Check the console** for database connection and API logs
+```javascript
+   async savePlayerSettings() {
+    try {
+      // === REGISTERED PLAYER: Save to Database ===
+      // Check if player has a registered name (logged in user)
+      if (this.playerName) {
+        // Send player settings to the database via POST API request
+        await fetch("/api/customization", {
+          method: "POST",
+          
+          // Set content type to JSON for proper server parsing
+          headers: { "Content-Type": "application/json" },
+          
+          // Serialize the request body with player name and all current settings
+          // Uses spread operator to include all properties from this.settings object
+          body: JSON.stringify({
+            playerName: this.playerName,        // Player identification
+            ...this.settings,                   // All customization settings (color, theme, etc.)
+          }),
+        });
+        // Note: We don't check response status here - fire and forget approach
+        // Settings will be loaded from database on next game session
+      } else {
+        // === ANONYMOUS PLAYER: Save to Local Storage ===
+        // For users without registered names, fall back to browser localStorage
+        // This provides persistence across browser sessions for anonymous users
+        localStorage.setItem("gameSettings", JSON.stringify(this.settings));
+        
+        // Note: localStorage is synchronous and has no network dependency
+        // Settings are immediately available for the current browser/device
+      }
+    } catch (error) {
+      // === ERROR HANDLING ===
+      // Handle network failures, server errors, or localStorage quota exceeded
+      // Log error but don't crash the game - settings just won't be saved
+      console.error("Failed to save settings:", error);
+      
+      // Note: Game continues normally even if save fails
+      // User will need to reconfigure settings on next session
+    }
+  }
+```
 
-## Stage 4 Complete! 🎉
+</details>
 
-Congratulations! You've successfully built a complete multiplayer dino game
-with:
+### loadGlobalLeaderboard()
 
-✅ **PostgreSQL Database Integration** - Persistent data storage\
-✅ **Global Leaderboard System** - Real-time player rankings\
-✅ **Player Customization** - Themes, colors, and difficulty settings\
-✅ **User Management** - Player names and persistent settings\
-✅ **RESTful API** - Clean endpoints for all game features\
-✅ **Responsive UI** - Modal dialogs and interactive elements
+<details><summary>📁 public/js/game.js (continued)</summary>
 
-### What's Next?
+```javascript
+  async loadGlobalLeaderboard() {
+    try {
+      // === FETCH LEADERBOARD DATA ===
+      // Request top 5 scores from the leaderboard API endpoint
+      // Query parameter "limit=5" restricts results to show only top performers
+      const response = await fetch("/api/leaderboard?limit=5");
+      
+      // === PROCESS SUCCESSFUL RESPONSE ===
+      // Check if the HTTP request was successful (status 200-299)
+      if (response.ok) {
+        // Parse the JSON response containing leaderboard data
+        // Expected format: { success: true, leaderboard: [...] }
+        const data = await response.json();
+        
+        // Update the UI with the fetched leaderboard entries
+        // Calls a separate method to handle DOM manipulation and display
+        this.displayLeaderboard(data.leaderboard);
+      }
+      // Note: If response is not ok (404, 500, etc.), we silently fail
+      // Game continues without leaderboard data - graceful degradation
+      
+    } catch (error) {
+      // === ERROR HANDLING ===
+      // Handle network failures, server downtime, or JSON parsing errors
+      // Log the error for debugging but don't crash the game
+      console.log("Failed to load leaderboard:", error);
+      
+      // Note: Game remains fully functional even if leaderboard fails to load
+      // Users can still play and their scores will be submitted when available
+    }
+  }
+```
+</details>
 
-Your game is now production-ready! Here are some ideas for further enhancements:
+## displayLeaderboard()
 
-- **Authentication System** - Add proper user login/registration
-- **Real-time Features** - WebSocket connections for live updates
-- **Game Analytics** - Track detailed player behavior
-- **Achievement System** - Unlock rewards for milestones
-- **Social Features** - Friend lists and challenges
-- **Mobile App** - Convert to a Progressive Web App (PWA)
+<details><summary>📁 public/js/game.js (continued)</summary>
 
-### Deploy to Production
+```js
+ displayLeaderboard(leaderboard) {
+    // === DOM ELEMENT RETRIEVAL ===
+    // Find the HTML element where we'll display the leaderboard entries
+    // This element should exist in the HTML with id="leaderboardList"
+    const leaderboardElement = document.getElementById("leaderboardList");
+    
+    // === SAFETY CHECK AND DATA VALIDATION ===
+    // Only proceed if both conditions are true:
+    // 1. leaderboardElement exists in the DOM (prevents null reference errors)
+    // 2. leaderboard data was provided and is not null/undefined
+    if (leaderboardElement && leaderboard) {
+      
+      // === DYNAMIC HTML GENERATION ===
+      // Transform the leaderboard array into HTML string using map() method
+      // Each entry object contains: { rank, playerName, score, ... }
+      leaderboardElement.innerHTML = leaderboard.map((entry) => `
+        <div class="leaderboard-entry">
+          <span class="rank">#${entry.rank}</span>
+          <span class="name">${entry.playerName}</span>
+          <span class="hscore">${entry.score}</span>
+        </div>
+      `).join("");
+      
+      // How this works:
+      // 1. leaderboard.map() creates a new array of HTML strings
+      // 2. Template literals (backticks) allow embedded variables with ${}
+      // 3. .join("") converts the array of strings into one continuous HTML string
+      // 4. innerHTML replaces the element's content with the generated HTML
+      
+      // Note: This approach completely replaces existing content each time
+      // Alternative approaches could append or update individual entries
+    }
+    // Note: If element doesn't exist or no data provided, method silently returns
+    // This prevents errors and allows the game to continue functioning
+  }
 
-Your Stage 4 game is ready to deploy to [Deno Deploy](https://deno.com/deploy)
-with your Neon PostgreSQL database!
+```
 
-## Troubleshooting
+## showPlayerNamePrompt()
 
-**Database Connection Issues:**
+<details><summary>📁 public/js/game.js (continued)</summary>
 
-- Verify your DATABASE_URL in .env is correct
-- Check that your Neon database is active
-- Ensure your IP is whitelisted in Neon settings
+```js
+  showPlayerNamePrompt() {
+    // === DEBUG LOGGING ===
+    // Log current player name state for debugging and development tracking
+    console.log(`🎮 Checking player name... Current: "${this.playerName}"`);
+    
+    // === PLAYER NAME VALIDATION ===
+    // Check if player needs to enter a name for leaderboard tracking
+    // Conditions that trigger name prompt:
+    // 1. this.playerName is null or undefined (!this.playerName)
+    // 2. playerName is an empty string ("")
+    // 3. playerName is the string "null" (from corrupted localStorage)
+    if (
+      !this.playerName || this.playerName === "" || this.playerName === "null"
+    ) {
+      console.log("🎮 No player name found, showing prompt...");
+      
+      // === DELAYED MODAL DISPLAY ===
+      // Use setTimeout to ensure the game UI has finished loading
+      // 1000ms delay prevents modal from appearing before page is ready
+      setTimeout(() => {
+        // === PRIMARY METHOD: MODAL INTERFACE ===
+        // Try to find the player name modal in the DOM
+        const modal = document.getElementById("playerModal");
+        
+        if (modal) {
+          console.log("🎮 Opening player modal...");
+          
+          // Open the modal using global function (defined elsewhere in the code)
+          window.openModal("playerModal");
+          
+          // === INPUT FIELD SETUP ===
+          // Find the text input field where user will type their name
+          const input = document.getElementById("playerNameInput");
+          
+          if (input) {
+            // Automatically focus the input so user can start typing immediately
+            // Improves user experience by eliminating extra clicks
+            input.focus();
+            
+            // === EVENT LISTENER MANAGEMENT ===
+            // Clean up any existing keypress listeners to prevent duplicates
+            // This is important when the method might be called multiple times
+            input.removeEventListener("keypress", this.handlePlayerNameEnter);
+            
+            // Add new keypress listener to handle Enter key submission
+            // this.handlePlayerNameEnter should be defined elsewhere to save the name
+            input.addEventListener("keypress", this.handlePlayerNameEnter);
+          }
+        } else {
+          // === FALLBACK METHOD: BROWSER PROMPT ===
+          console.log("🎮 Modal not found, using prompt fallback...");
+          
+          // If modal element doesn't exist in DOM, use browser's built-in prompt
+          // This ensures the feature works even if the modal HTML is missing
+          const name = prompt("Enter your name for the leaderboard:");
+          
+          // === NAME VALIDATION AND SAVING ===
+          // Only save the name if user provided valid input
+          // name.trim() removes leading/trailing whitespace
+          if (name && name.trim()) {
+            // Call method to save the cleaned name (defined elsewhere)
+            this.setPlayerName(name.trim());
+          }
+          // Note: If user cancels prompt or enters empty string, nothing happens
+        }
+      }, 1000);
+    } else {
+      // === PLAYER NAME EXISTS ===
+      // Player already has a name, no prompt needed
+      // Log confirmation for debugging purposes
+      console.log(`🎮 Player name found: ${this.playerName}`);
+    }
+  }
+```
+</details>
 
-**API Errors:**
+### handle and set player name
 
-- Check the server console for detailed error messages
-- Verify all database tables were created successfully
-- Test API endpoints directly in your browser
+<details><summary>📁 public/js/game.js (continued)</summary>
 
-**Game Not Loading:**
+```javascript
+  handlePlayerNameEnter(event) {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      window.savePlayerName();
+    }
+  }
 
-- Check browser console for JavaScript errors
-- Ensure all static files are being served correctly
-- Verify the game initialization sequence
+  setPlayerName(name) {
+    this.playerName = name;
+    localStorage.setItem("playerName", name);
+    this.loadPlayerSettings();
+    console.log(`👤 Player name set: ${name}`);
+  }
+```
+
+</details>
+
+
+
+
+
+
+
+
+
+
+## Testing your complete application
+
+1. **Start the server**:
+   ```bash
+   deno task dev
+   ```
+
+2. **Test database integration**:
+- Submit a high score and verify it appears in the leaderboard
+- Customize your dino and verify settings persist after refresh
+- Check the browser console for database operation logs
+
+3. **Test the leaderboard**:
+- Play multiple games with different scores
+- Verify ranking is correct
+- Test the full leaderboard modal
+
+4. **Test customization**:
+- Change dino colors and themes
+- Verify changes persist across browser sessions
+- Test form validation for invalid inputs
+
+5. **Test error handling**:
+- Temporarily disconnect from the database
+- Verify graceful degradation and error messages
+
+## Deployment considerations
+
+### Environment variables
+
+Set these in production:
+
+```env
+DATABASE_URL=postgresql://user:password@host:port/database
+PORT=8000
+```
+
+### Database hosting
+
+For production, consider:
+
+- **Neon**: Serverless PostgreSQL with generous free tier
+- **Supabase**: PostgreSQL with built-in APIs and authentication
+- **Railway**: Simple deployment with PostgreSQL add-ons
+- **Heroku Postgres**: Traditional hosting with PostgreSQL add-on
+
+### Security considerations
+
+- Use environment variables for sensitive data
+- Implement input validation and SQL injection prevention
+- Add rate limiting for API endpoints
+- Consider authentication for registered players
+
+## Learning objectives completed
+
+After completing Stage 4, you should understand:
+
+- [x] **Database Design**: Relational schema design with tables, keys, and
+      relationships
+- [x] **SQL Operations**: Creating, reading, updating data with PostgreSQL
+- [x] **API Development**: RESTful endpoints with proper error handling
+- [x] **Connection Management**: Database pooling and resource optimization
+- [x] **Data Persistence**: Multiple storage layers and their appropriate uses
+- [x] **Full-Stack Integration**: Connecting frontend JavaScript with backend
+      APIs
+- [x] **Production Deployment**: Environment configuration and database hosting
+
+## Congratulations! 🎉
+
+You've built a complete, professional-grade game with:
+
+- Interactive gameplay with realistic physics
+- Database-backed global leaderboards
+- Player customization with persistent settings
+- Modern web technologies and best practices
+- Production-ready architecture
+
+You've learned fundamental concepts that apply to any web application:
+
+- **Frontend Development**: HTML5 Canvas, JavaScript, responsive design
+- **Backend Development**: Server APIs, database integration, middleware
+- **Database Management**: Schema design, SQL queries, connection pooling
+- **Full-Stack Architecture**: Client-server communication, state management
+
+Your Dino Runner game demonstrates real-world development skills and patterns
+used in professional software development. You can extend this foundation to
+build even more complex applications!
+
+## Next steps
+
+Consider enhancing your game further with:
+
+- User authentication and accounts
+- Real-time multiplayer features
+- Advanced analytics and reporting
+- Mobile app versions
+- Social features and sharing
+- Power-ups and special abilities
+
+Keep building and learning! 🚀🦕
