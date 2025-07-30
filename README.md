@@ -37,8 +37,8 @@ By the end of Stage 4, you'll have:
 
 1. Visit [neon.tech](https://neon.tech/) and sign up for an account
 2. Create a new project and name it "dino-runner"
-3. Copy the connection string from your dashboard, this will be used in
-   your `.env` file
+3. Copy the connection string from your dashboard, this will be used in your
+   `.env` file
 
 ## Environment configuration
 
@@ -79,8 +79,8 @@ We'll create four main tables:
 3. **player_settings**: Customization preferences
 4. **game_sessions**: Analytics and session tracking
 
-First, let's define our database structure. We use a schema file to
-define all our tables and relationships.
+First, let's define our database structure. We use a schema file to define all
+our tables and relationships.
 
 Make a new directory called `database` in your `src` folder and create a file
 called `schema.sql`:
@@ -143,9 +143,11 @@ CREATE INDEX IF NOT EXISTS idx_game_sessions_created_at ON game_sessions(created
 CREATE INDEX IF NOT EXISTS idx_players_username ON players(username);
 ```
 
-- `SERIAL PRIMARY KEY`: An auto-incrementing unique identifier to ensure each record has a unique ID
-- `REFERENCES`: Foreign key relationships between tables. These create a link between two tables, ensuring referential integrity, so for example if a player is deleted, their related scores
-  and settings are also removed.
+- `SERIAL PRIMARY KEY`: An auto-incrementing unique identifier to ensure each
+  record has a unique ID
+- `REFERENCES`: Foreign key relationships between tables. These create a link
+  between two tables, ensuring referential integrity, so for example if a player
+  is deleted, their related scores and settings are also removed.
 - `ON DELETE CASCADE`: Automatically delete related records
 - `DEFAULT NOW()`: Automatically set timestamp on record creation
 - `UNIQUE`: Ensure no duplicate values
@@ -156,8 +158,10 @@ CREATE INDEX IF NOT EXISTS idx_players_username ON players(username);
 
 ### Database connection management
 
-We'll create a connection manager that handles PostgreSQL connections efficiently
-using connection pooling. This allows multiple concurrent requests to share a limited number of database connections, improving performance and resource utilization.
+We'll create a connection manager that handles PostgreSQL connections
+efficiently using connection pooling. This allows multiple concurrent requests
+to share a limited number of database connections, improving performance and
+resource utilization.
 
 In your `src/database` directory, create a file called `connection.ts`:
 
@@ -223,13 +227,18 @@ export async function closeDatabase(): Promise<void> {
 }
 ```
 
-We use connection pooling to reuse database connections instead of creating new ones, and implement graceful handling of connection failures. One shared connection pool is used throughout the application, with proper cleanup of database connections on shutdown.
+We use connection pooling to reuse database connections instead of creating new
+ones, and implement graceful handling of connection failures. One shared
+connection pool is used throughout the application, with proper cleanup of
+database connections on shutdown.
 
 </details>
 
 ### Database migrations and initialization
 
-We'll need to set up our database tables and initial data automatically when the server starts. This ensures that the database schema is always up-to-date and ready for use. We can use a migration system to handle this.
+We'll need to set up our database tables and initial data automatically when the
+server starts. This ensures that the database schema is always up-to-date and
+ready for use. We can use a migration system to handle this.
 
 In your `src/database` directory, create a file called `migrations.ts`:
 
@@ -319,17 +328,23 @@ async function insertSampleData(client: any): Promise<void> {
 }
 ```
 
-These are idempotent operations, meaning they can be run multiple times without side effects. The migration system ensures that the database schema is always up-to-date, and sample data is inserted only if it doesn't already exist.
+These are idempotent operations, meaning they can be run multiple times without
+side effects. The migration system ensures that the database schema is always
+up-to-date, and sample data is inserted only if it doesn't already exist.
 
-The sample data helps you to test your application without needing to manually create records.
+The sample data helps you to test your application without needing to manually
+create records.
 
 </details>
 
 ### Database middleware
 
-The different routes will need access to the database connection. To avoid code duplication, we can create middleware to inject database connections into request contexts. 
+The different routes will need access to the database connection. To avoid code
+duplication, we can create middleware to inject database connections into
+request contexts.
 
-Create a directory called `middleware` in your `src` folder and create a file called `database.ts`:
+Create a directory called `middleware` in your `src` folder and create a file
+called `database.ts`:
 
 <details>
 <summary>📁 src/middleware/database.ts (click to expand)</summary>
@@ -369,7 +384,8 @@ export async function databaseMiddleware(
 
 ### Leaderboard API routes
 
-Our backend will expose a REST API for the leaderboard functionality, so that we can submit and retrieve scores and player data.
+Our backend will expose a REST API for the leaderboard functionality, so that we
+can submit and retrieve scores and player data.
 
 In your `src/routes` directory, create a file called `leaderboard.routes.ts`:
 
@@ -505,14 +521,18 @@ export default router;
 
 This code provides two new endpoints:
 
-- GET /api/leaderboard: Fetches the global leaderboard with optional limit parameter
-- POST /api/leaderboard: Submits a new high score with player name and score data
+- GET /api/leaderboard: Fetches the global leaderboard with optional limit
+  parameter
+- POST /api/leaderboard: Submits a new high score with player name and score
+  data
 
 </details>
 
 ### Player customization API
 
-We will create endpoints for player customization features, allowing users to save and retrieve their preferences such as dino colors, background themes, sound settings, and difficulty levels.
+We will create endpoints for player customization features, allowing users to
+save and retrieve their preferences such as dino colors, background themes,
+sound settings, and difficulty levels.
 
 In your `src/routes` directory, create a file called `customization.routes.ts`:
 
@@ -655,14 +675,17 @@ export default router;
 ```
 
 This code adds two more endpoints:
-- GET /api/settings/:playerId: Retrieves player customization settings by player ID
+
+- GET /api/settings/:playerId: Retrieves player customization settings by player
+  ID
 - POST /api/settings: Saves or updates player customization settings
 
 </details>
 
 ### Update the main server
 
-Now we need to integrate all these components into our main server file. This will set up the application, initialize the database, and register our routes.
+Now we need to integrate all these components into our main server file. This
+will set up the application, initialize the database, and register our routes.
 
 Update your `src/main.ts` file to include the new routes and middleware:
 
@@ -727,99 +750,99 @@ console.log(
 
 ### Update index.html
 
-We'll add a leaderboard to the `index.html` file and create a modal for customization options.
+We'll add a leaderboard to the `index.html` file and create a modal for
+customization options.
 
 <details>
 <summary>📁 public/index.html (click to expand)</summary>
 
 ```html
- <!-- NEW: Global Leaderboard Section -->
-      <section class="container">
-        <h3>Global Leaderboard</h3>
-        <div class="leaderboard-container">
-          <div class="leaderboard-list" id="leaderboardList">
-            <div class="loading">Loading leaderboard...</div>
-          </div>
-          <div style="text-align: center; margin-top: 15px">
-            <a href="/leaderboard" class="btn btn-primary btn-block"
-            >View Full Leaderboard</a>
-          </div>
-        </div>
-      </section>
+<!-- NEW: Global Leaderboard Section -->
+<section class="container">
+  <h3>Global Leaderboard</h3>
+  <div class="leaderboard-container">
+    <div class="leaderboard-list" id="leaderboardList">
+      <div class="loading">Loading leaderboard...</div>
+    </div>
+    <div style="text-align: center; margin-top: 15px">
+      <a href="/leaderboard" class="btn btn-primary btn-block"
+      >View Full Leaderboard</a>
+    </div>
+  </div>
+</section>
 
-      <!-- NEW: Player Name Modal -->
-      <div class="modal" id="playerModal">
-        <div class="modal-content">
-          <h3>🎮 Welcome to Dino Runner!</h3>
-          <p>
-            Enter your name to save scores and compete on the global
-            leaderboard:
-          </p>
-          <input
-            type="text"
-            id="playerNameInput"
-            placeholder="Your name"
-            maxlength="20"
-          />
-          <div class="modal-buttons">
-            <button onclick="savePlayerName()" class="btn btn-primary">
-              Save & Play
-            </button>
-            <button
-              onclick="closeModal('playerModal')"
-              class="btn btn-secondary"
-            >
-              Play Anonymous
-            </button>
-          </div>
-        </div>
+<!-- NEW: Player Name Modal -->
+<div class="modal" id="playerModal">
+  <div class="modal-content">
+    <h3>🎮 Welcome to Dino Runner!</h3>
+    <p>
+      Enter your name to save scores and compete on the global leaderboard:
+    </p>
+    <input
+      type="text"
+      id="playerNameInput"
+      placeholder="Your name"
+      maxlength="20"
+    />
+    <div class="modal-buttons">
+      <button onclick="savePlayerName()" class="btn btn-primary">
+        Save & Play
+      </button>
+      <button
+        onclick="closeModal('playerModal')"
+        class="btn btn-secondary"
+      >
+        Play Anonymous
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- NEW: Customization Modal -->
+<div class="modal" id="customizationModal">
+  <div class="modal-content">
+    <h3>🎨 Customize Your Game</h3>
+
+    <div class="customization-options">
+      <div class="option-group">
+        <label for="dinoColorPicker">Dino Color:</label>
+        <input type="color" id="dinoColorPicker" value="#4CAF50" />
       </div>
 
-      <!-- NEW: Customization Modal -->
-      <div class="modal" id="customizationModal">
-        <div class="modal-content">
-          <h3>🎨 Customize Your Game</h3>
-
-          <div class="customization-options">
-            <div class="option-group">
-              <label for="dinoColorPicker">Dino Color:</label>
-              <input type="color" id="dinoColorPicker" value="#4CAF50" />
-            </div>
-
-            <div class="option-group">
-              <label for="backgroundTheme">Background Theme:</label>
-              <select id="backgroundTheme">
-                <option value="desert">🏜️ Desert</option>
-                <option value="forest">🌲 Forest</option>
-                <option value="night">🌙 Night</option>
-                <option value="rainbow">🌈 Rainbow</option>
-                <option value="space">🚀 Space</option>
-              </select>
-            </div>
-
-            <div class="option-group">
-              <label for="difficultyPreference">Difficulty:</label>
-              <select id="difficultyPreference">
-                <option value="easy">😊 Easy</option>
-                <option value="normal">😐 Normal</option>
-                <option value="hard">😈 Hard</option>
-              </select>
-            </div>
-          </div>
-
-          <div class="modal-buttons">
-            <button onclick="saveCustomization()" class="btn btn-primary">
-              Save Changes
-            </button>
-            <button
-              onclick="closeModal('customizationModal')"
-              class="btn btn-secondary"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
+      <div class="option-group">
+        <label for="backgroundTheme">Background Theme:</label>
+        <select id="backgroundTheme">
+          <option value="desert">🏜️ Desert</option>
+          <option value="forest">🌲 Forest</option>
+          <option value="night">🌙 Night</option>
+          <option value="rainbow">🌈 Rainbow</option>
+          <option value="space">🚀 Space</option>
+        </select>
       </div>
+
+      <div class="option-group">
+        <label for="difficultyPreference">Difficulty:</label>
+        <select id="difficultyPreference">
+          <option value="easy">😊 Easy</option>
+          <option value="normal">😐 Normal</option>
+          <option value="hard">😈 Hard</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="modal-buttons">
+      <button onclick="saveCustomization()" class="btn btn-primary">
+        Save Changes
+      </button>
+      <button
+        onclick="closeModal('customizationModal')"
+        class="btn btn-secondary"
+      >
+        Cancel
+      </button>
+    </div>
+  </div>
+</div>
 ```
 
 The modal system provides popup interfaces for customization and leaderboard
@@ -829,15 +852,17 @@ views. We use semantic HTML with proper ARIA attributes for accessibility.
 
 ### Make a new page for the leaderboard
 
-We'll make a new HTML file for the leaderboard, which will live at `/leaderboard`. We'll use 
+We'll make a new HTML file for the leaderboard, which will live at
+`/leaderboard`. We'll use
 
-Create a new file called `leaderboard.html` in the `public` directory to display the global leaderboard:
+Create a new file called `leaderboard.html` in the `public` directory to display
+the global leaderboard:
 
 <details>
 <summary>📁 public/leaderboard.html (click to expand)</summary>
 
 ```html
- <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8">
@@ -908,11 +933,14 @@ Create a new file called `leaderboard.html` in the `public` directory to display
 
 ### Enhanced CSS for modals and leaderboards
 
-Updated styles for the leaderboard and modals and for the leaderboard page are available in [this CSS file](https://raw.githubusercontent.com/thisisjofrank/game-tutorial-stage-4/refs/heads/main/public/css/styles.css).
+Updated styles for the leaderboard and modals and for the leaderboard page are
+available in
+[this CSS file](https://raw.githubusercontent.com/thisisjofrank/game-tutorial-stage-4/refs/heads/main/public/css/styles.css).
 
 ### Enhanced JavaScript game engine
 
-The Stage 4 game engine builds upon Stage 3 with significant enhancements for database integration and player customization. We will add:
+The Stage 4 game engine builds upon Stage 3 with significant enhancements for
+database integration and player customization. We will add:
 
 #### Player Management System
 
@@ -925,7 +953,6 @@ The Stage 4 game engine builds upon Stage 3 with significant enhancements for da
 - Real-time score submission to database
 - Automatic leaderboard updates after each game
 - Global ranking display with player names and scores
-
 
 #### Player Settings Management
 
@@ -984,7 +1011,7 @@ class DinoGame {
     // NEW: Customization settings with defaults
     this.settings = {
       dinoColor: "#4CAF50",
-      backgroundTheme: "desert", 
+      backgroundTheme: "desert",
       soundEnabled: true,
       difficultyPreference: "normal",
     };
@@ -1003,7 +1030,7 @@ class DinoGame {
 
   init() {
     // ... existing initialization ...
-    
+
     // NEW: Load player settings from database
     this.loadPlayerSettings();
     // NEW: Load and display global leaderboard
@@ -1049,7 +1076,7 @@ class DinoGame {
   // NEW: Enhanced game tracking
   startGame() {
     // ... existing game start logic ...
-    
+
     // NEW: Initialize tracking variables
     this.obstaclesAvoided = 0;
     this.gameStartTime = Date.now();
@@ -1058,7 +1085,7 @@ class DinoGame {
 
   updateObstacles() {
     // ... existing obstacle logic ...
-    
+
     // NEW: Count avoided obstacles for statistics
     if (obstacle.x + obstacle.width < 0) {
       this.obstacles.splice(i, 1);
@@ -1069,7 +1096,7 @@ class DinoGame {
 
   async gameOver() {
     // ... existing game over logic ...
-    
+
     // NEW: Calculate game duration and submit to database
     const gameDuration = Math.floor((Date.now() - this.gameStartTime) / 1000);
     await this.submitScoreToDatabase(gameDuration);
@@ -1087,16 +1114,16 @@ class DinoGame {
 }
 
 // NEW: Global leaderboard management functions
-window.loadLeaderboard = async function() {
+window.loadLeaderboard = async function () {
   // Fetch and display leaderboard data
 };
 
-// NEW: Player customization functions  
-window.openCustomization = function() {
+// NEW: Player customization functions
+window.openCustomization = function () {
   // Open customization modal with current settings
 };
 
-window.saveCustomization = function() {
+window.saveCustomization = function () {
   // Save new customization preferences
 };
 ```
@@ -1110,46 +1137,47 @@ Next we'll implement each of the new methods we just set up.
 <details><summary>📁 public/js/game.js (continued)</summary>
 
 ```javascript
-  async loadPlayerSettings() {
-    try {
-      // Check if player has a registered name for database lookup
-      if (this.playerName) {
-        // Attempt to fetch player's customization settings from the database API
-        const response = await fetch(`/api/customization/${this.playerName}`);
+async loadPlayerSettings() {
+  try {
+    // Check if player has a registered name for database lookup
+    if (this.playerName) {
+      // Attempt to fetch player's customization settings from the database API
+      const response = await fetch(`/api/customization/${this.playerName}`);
+      
+      // If the API request was successful (status 200-299)
+      if (response.ok) {
+        // Parse the JSON response containing the player's settings
+        const data = await response.json();
         
-        // If the API request was successful (status 200-299)
-        if (response.ok) {
-          // Parse the JSON response containing the player's settings
-          const data = await response.json();
-          
-          // Replace current settings with the retrieved database settings
-          this.settings = data.settings;
-          
-          // Apply the loaded settings to the game (colors, themes, difficulty)
-          this.applyCustomizations();
-        }
-        // Note: If response is not ok, we fall through to use default settings
-      } else {
-        // For anonymous users (no player name), fall back to browser localStorage
-        const savedSettings = localStorage.getItem("gameSettings");
+        // Replace current settings with the retrieved database settings
+        this.settings = data.settings;
         
-        // If settings exist in localStorage, load them
-        if (savedSettings) {
-          // Merge saved settings with defaults (spread operator preserves defaults for missing keys)
-          this.settings = { ...this.settings, ...JSON.parse(savedSettings) };
-          
-          // Apply the loaded local settings to the game
-          this.applyCustomizations();
-        }
-        // Note: If no localStorage settings exist, game uses constructor defaults
+        // Apply the loaded settings to the game (colors, themes, difficulty)
+        this.applyCustomizations();
       }
-    } catch (error) {
-      // Handle any network errors, JSON parsing errors, or API failures gracefully
-      // Game continues with default settings rather than crashing
-      console.log("Using default settings:", error);
+      // Note: If response is not ok, we fall through to use default settings
+    } else {
+      // For anonymous users (no player name), fall back to browser localStorage
+      const savedSettings = localStorage.getItem("gameSettings");
+      
+      // If settings exist in localStorage, load them
+      if (savedSettings) {
+        // Merge saved settings with defaults (spread operator preserves defaults for missing keys)
+        this.settings = { ...this.settings, ...JSON.parse(savedSettings) };
+        
+        // Apply the loaded local settings to the game
+        this.applyCustomizations();
+      }
+      // Note: If no localStorage settings exist, game uses constructor defaults
     }
+  } catch (error) {
+    // Handle any network errors, JSON parsing errors, or API failures gracefully
+    // Game continues with default settings rather than crashing
+    console.log("Using default settings:", error);
   }
+}
 ```
+
 </details>
 
 ### applyCustomizations()
@@ -1187,7 +1215,6 @@ Next we'll implement each of the new methods we just set up.
       `🎨 Applied theme: ${this.settings.backgroundTheme}, difficulty: ${this.settings.difficultyPreference}`,
     );
   }
-
 ```
 
 </details>
@@ -1197,46 +1224,46 @@ Next we'll implement each of the new methods we just set up.
 <details><summary>📁 public/js/game.js (continued)</summary>
 
 ```javascript
-   async savePlayerSettings() {
-    try {
-      // === REGISTERED PLAYER: Save to Database ===
-      // Check if player has a registered name (logged in user)
-      if (this.playerName) {
-        // Send player settings to the database via POST API request
-        await fetch("/api/customization", {
-          method: "POST",
-          
-          // Set content type to JSON for proper server parsing
-          headers: { "Content-Type": "application/json" },
-          
-          // Serialize the request body with player name and all current settings
-          // Uses spread operator to include all properties from this.settings object
-          body: JSON.stringify({
-            playerName: this.playerName,        // Player identification
-            ...this.settings,                   // All customization settings (color, theme, etc.)
-          }),
-        });
-        // Note: We don't check response status here - fire and forget approach
-        // Settings will be loaded from database on next game session
-      } else {
-        // === ANONYMOUS PLAYER: Save to Local Storage ===
-        // For users without registered names, fall back to browser localStorage
-        // This provides persistence across browser sessions for anonymous users
-        localStorage.setItem("gameSettings", JSON.stringify(this.settings));
+ async savePlayerSettings() {
+  try {
+    // === REGISTERED PLAYER: Save to Database ===
+    // Check if player has a registered name (logged in user)
+    if (this.playerName) {
+      // Send player settings to the database via POST API request
+      await fetch("/api/customization", {
+        method: "POST",
         
-        // Note: localStorage is synchronous and has no network dependency
-        // Settings are immediately available for the current browser/device
-      }
-    } catch (error) {
-      // === ERROR HANDLING ===
-      // Handle network failures, server errors, or localStorage quota exceeded
-      // Log error but don't crash the game - settings just won't be saved
-      console.error("Failed to save settings:", error);
+        // Set content type to JSON for proper server parsing
+        headers: { "Content-Type": "application/json" },
+        
+        // Serialize the request body with player name and all current settings
+        // Uses spread operator to include all properties from this.settings object
+        body: JSON.stringify({
+          playerName: this.playerName,        // Player identification
+          ...this.settings,                   // All customization settings (color, theme, etc.)
+        }),
+      });
+      // Note: We don't check response status here - fire and forget approach
+      // Settings will be loaded from database on next game session
+    } else {
+      // === ANONYMOUS PLAYER: Save to Local Storage ===
+      // For users without registered names, fall back to browser localStorage
+      // This provides persistence across browser sessions for anonymous users
+      localStorage.setItem("gameSettings", JSON.stringify(this.settings));
       
-      // Note: Game continues normally even if save fails
-      // User will need to reconfigure settings on next session
+      // Note: localStorage is synchronous and has no network dependency
+      // Settings are immediately available for the current browser/device
     }
+  } catch (error) {
+    // === ERROR HANDLING ===
+    // Handle network failures, server errors, or localStorage quota exceeded
+    // Log error but don't crash the game - settings just won't be saved
+    console.error("Failed to save settings:", error);
+    
+    // Note: Game continues normally even if save fails
+    // User will need to reconfigure settings on next session
   }
+}
 ```
 
 </details>
@@ -1246,38 +1273,39 @@ Next we'll implement each of the new methods we just set up.
 <details><summary>📁 public/js/game.js (continued)</summary>
 
 ```javascript
-  async loadGlobalLeaderboard() {
-    try {
-      // === FETCH LEADERBOARD DATA ===
-      // Request top 5 scores from the leaderboard API endpoint
-      // Query parameter "limit=5" restricts results to show only top performers
-      const response = await fetch("/api/leaderboard?limit=5");
+async loadGlobalLeaderboard() {
+  try {
+    // === FETCH LEADERBOARD DATA ===
+    // Request top 5 scores from the leaderboard API endpoint
+    // Query parameter "limit=5" restricts results to show only top performers
+    const response = await fetch("/api/leaderboard?limit=5");
+    
+    // === PROCESS SUCCESSFUL RESPONSE ===
+    // Check if the HTTP request was successful (status 200-299)
+    if (response.ok) {
+      // Parse the JSON response containing leaderboard data
+      // Expected format: { success: true, leaderboard: [...] }
+      const data = await response.json();
       
-      // === PROCESS SUCCESSFUL RESPONSE ===
-      // Check if the HTTP request was successful (status 200-299)
-      if (response.ok) {
-        // Parse the JSON response containing leaderboard data
-        // Expected format: { success: true, leaderboard: [...] }
-        const data = await response.json();
-        
-        // Update the UI with the fetched leaderboard entries
-        // Calls a separate method to handle DOM manipulation and display
-        this.displayLeaderboard(data.leaderboard);
-      }
-      // Note: If response is not ok (404, 500, etc.), we silently fail
-      // Game continues without leaderboard data - graceful degradation
-      
-    } catch (error) {
-      // === ERROR HANDLING ===
-      // Handle network failures, server downtime, or JSON parsing errors
-      // Log the error for debugging but don't crash the game
-      console.log("Failed to load leaderboard:", error);
-      
-      // Note: Game remains fully functional even if leaderboard fails to load
-      // Users can still play and their scores will be submitted when available
+      // Update the UI with the fetched leaderboard entries
+      // Calls a separate method to handle DOM manipulation and display
+      this.displayLeaderboard(data.leaderboard);
     }
+    // Note: If response is not ok (404, 500, etc.), we silently fail
+    // Game continues without leaderboard data - graceful degradation
+    
+  } catch (error) {
+    // === ERROR HANDLING ===
+    // Handle network failures, server downtime, or JSON parsing errors
+    // Log the error for debugging but don't crash the game
+    console.log("Failed to load leaderboard:", error);
+    
+    // Note: Game remains fully functional even if leaderboard fails to load
+    // Users can still play and their scores will be submitted when available
   }
+}
 ```
+
 </details>
 
 ## displayLeaderboard()
@@ -1285,42 +1313,41 @@ Next we'll implement each of the new methods we just set up.
 <details><summary>📁 public/js/game.js (continued)</summary>
 
 ```js
- displayLeaderboard(leaderboard) {
-    // === DOM ELEMENT RETRIEVAL ===
-    // Find the HTML element where we'll display the leaderboard entries
-    // This element should exist in the HTML with id="leaderboardList"
-    const leaderboardElement = document.getElementById("leaderboardList");
-    
-    // === SAFETY CHECK AND DATA VALIDATION ===
-    // Only proceed if both conditions are true:
-    // 1. leaderboardElement exists in the DOM (prevents null reference errors)
-    // 2. leaderboard data was provided and is not null/undefined
-    if (leaderboardElement && leaderboard) {
-      
-      // === DYNAMIC HTML GENERATION ===
-      // Transform the leaderboard array into HTML string using map() method
-      // Each entry object contains: { rank, playerName, score, ... }
-      leaderboardElement.innerHTML = leaderboard.map((entry) => `
-        <div class="leaderboard-entry">
-          <span class="rank">#${entry.rank}</span>
-          <span class="name">${entry.playerName}</span>
-          <span class="hscore">${entry.score}</span>
-        </div>
-      `).join("");
-      
-      // How this works:
-      // 1. leaderboard.map() creates a new array of HTML strings
-      // 2. Template literals (backticks) allow embedded variables with ${}
-      // 3. .join("") converts the array of strings into one continuous HTML string
-      // 4. innerHTML replaces the element's content with the generated HTML
-      
-      // Note: This approach completely replaces existing content each time
-      // Alternative approaches could append or update individual entries
-    }
-    // Note: If element doesn't exist or no data provided, method silently returns
-    // This prevents errors and allows the game to continue functioning
-  }
-
+displayLeaderboard(leaderboard) {
+   // === DOM ELEMENT RETRIEVAL ===
+   // Find the HTML element where we'll display the leaderboard entries
+   // This element should exist in the HTML with id="leaderboardList"
+   const leaderboardElement = document.getElementById("leaderboardList");
+   
+   // === SAFETY CHECK AND DATA VALIDATION ===
+   // Only proceed if both conditions are true:
+   // 1. leaderboardElement exists in the DOM (prevents null reference errors)
+   // 2. leaderboard data was provided and is not null/undefined
+   if (leaderboardElement && leaderboard) {
+     
+     // === DYNAMIC HTML GENERATION ===
+     // Transform the leaderboard array into HTML string using map() method
+     // Each entry object contains: { rank, playerName, score, ... }
+     leaderboardElement.innerHTML = leaderboard.map((entry) => `
+       <div class="leaderboard-entry">
+         <span class="rank">#${entry.rank}</span>
+         <span class="name">${entry.playerName}</span>
+         <span class="hscore">${entry.score}</span>
+       </div>
+     `).join("");
+     
+     // How this works:
+     // 1. leaderboard.map() creates a new array of HTML strings
+     // 2. Template literals (backticks) allow embedded variables with ${}
+     // 3. .join("") converts the array of strings into one continuous HTML string
+     // 4. innerHTML replaces the element's content with the generated HTML
+     
+     // Note: This approach completely replaces existing content each time
+     // Alternative approaches could append or update individual entries
+   }
+   // Note: If element doesn't exist or no data provided, method silently returns
+   // This prevents errors and allows the game to continue functioning
+ }
 ```
 
 ## showPlayerNamePrompt()
@@ -1328,80 +1355,81 @@ Next we'll implement each of the new methods we just set up.
 <details><summary>📁 public/js/game.js (continued)</summary>
 
 ```js
-  showPlayerNamePrompt() {
-    // === DEBUG LOGGING ===
-    // Log current player name state for debugging and development tracking
-    console.log(`🎮 Checking player name... Current: "${this.playerName}"`);
+showPlayerNamePrompt() {
+  // === DEBUG LOGGING ===
+  // Log current player name state for debugging and development tracking
+  console.log(`🎮 Checking player name... Current: "${this.playerName}"`);
+  
+  // === PLAYER NAME VALIDATION ===
+  // Check if player needs to enter a name for leaderboard tracking
+  // Conditions that trigger name prompt:
+  // 1. this.playerName is null or undefined (!this.playerName)
+  // 2. playerName is an empty string ("")
+  // 3. playerName is the string "null" (from corrupted localStorage)
+  if (
+    !this.playerName || this.playerName === "" || this.playerName === "null"
+  ) {
+    console.log("🎮 No player name found, showing prompt...");
     
-    // === PLAYER NAME VALIDATION ===
-    // Check if player needs to enter a name for leaderboard tracking
-    // Conditions that trigger name prompt:
-    // 1. this.playerName is null or undefined (!this.playerName)
-    // 2. playerName is an empty string ("")
-    // 3. playerName is the string "null" (from corrupted localStorage)
-    if (
-      !this.playerName || this.playerName === "" || this.playerName === "null"
-    ) {
-      console.log("🎮 No player name found, showing prompt...");
+    // === DELAYED MODAL DISPLAY ===
+    // Use setTimeout to ensure the game UI has finished loading
+    // 1000ms delay prevents modal from appearing before page is ready
+    setTimeout(() => {
+      // === PRIMARY METHOD: MODAL INTERFACE ===
+      // Try to find the player name modal in the DOM
+      const modal = document.getElementById("playerModal");
       
-      // === DELAYED MODAL DISPLAY ===
-      // Use setTimeout to ensure the game UI has finished loading
-      // 1000ms delay prevents modal from appearing before page is ready
-      setTimeout(() => {
-        // === PRIMARY METHOD: MODAL INTERFACE ===
-        // Try to find the player name modal in the DOM
-        const modal = document.getElementById("playerModal");
+      if (modal) {
+        console.log("🎮 Opening player modal...");
         
-        if (modal) {
-          console.log("🎮 Opening player modal...");
+        // Open the modal using global function (defined elsewhere in the code)
+        window.openModal("playerModal");
+        
+        // === INPUT FIELD SETUP ===
+        // Find the text input field where user will type their name
+        const input = document.getElementById("playerNameInput");
+        
+        if (input) {
+          // Automatically focus the input so user can start typing immediately
+          // Improves user experience by eliminating extra clicks
+          input.focus();
           
-          // Open the modal using global function (defined elsewhere in the code)
-          window.openModal("playerModal");
+          // === EVENT LISTENER MANAGEMENT ===
+          // Clean up any existing keypress listeners to prevent duplicates
+          // This is important when the method might be called multiple times
+          input.removeEventListener("keypress", this.handlePlayerNameEnter);
           
-          // === INPUT FIELD SETUP ===
-          // Find the text input field where user will type their name
-          const input = document.getElementById("playerNameInput");
-          
-          if (input) {
-            // Automatically focus the input so user can start typing immediately
-            // Improves user experience by eliminating extra clicks
-            input.focus();
-            
-            // === EVENT LISTENER MANAGEMENT ===
-            // Clean up any existing keypress listeners to prevent duplicates
-            // This is important when the method might be called multiple times
-            input.removeEventListener("keypress", this.handlePlayerNameEnter);
-            
-            // Add new keypress listener to handle Enter key submission
-            // this.handlePlayerNameEnter should be defined elsewhere to save the name
-            input.addEventListener("keypress", this.handlePlayerNameEnter);
-          }
-        } else {
-          // === FALLBACK METHOD: BROWSER PROMPT ===
-          console.log("🎮 Modal not found, using prompt fallback...");
-          
-          // If modal element doesn't exist in DOM, use browser's built-in prompt
-          // This ensures the feature works even if the modal HTML is missing
-          const name = prompt("Enter your name for the leaderboard:");
-          
-          // === NAME VALIDATION AND SAVING ===
-          // Only save the name if user provided valid input
-          // name.trim() removes leading/trailing whitespace
-          if (name && name.trim()) {
-            // Call method to save the cleaned name (defined elsewhere)
-            this.setPlayerName(name.trim());
-          }
-          // Note: If user cancels prompt or enters empty string, nothing happens
+          // Add new keypress listener to handle Enter key submission
+          // this.handlePlayerNameEnter should be defined elsewhere to save the name
+          input.addEventListener("keypress", this.handlePlayerNameEnter);
         }
-      }, 1000);
-    } else {
-      // === PLAYER NAME EXISTS ===
-      // Player already has a name, no prompt needed
-      // Log confirmation for debugging purposes
-      console.log(`🎮 Player name found: ${this.playerName}`);
-    }
+      } else {
+        // === FALLBACK METHOD: BROWSER PROMPT ===
+        console.log("🎮 Modal not found, using prompt fallback...");
+        
+        // If modal element doesn't exist in DOM, use browser's built-in prompt
+        // This ensures the feature works even if the modal HTML is missing
+        const name = prompt("Enter your name for the leaderboard:");
+        
+        // === NAME VALIDATION AND SAVING ===
+        // Only save the name if user provided valid input
+        // name.trim() removes leading/trailing whitespace
+        if (name && name.trim()) {
+          // Call method to save the cleaned name (defined elsewhere)
+          this.setPlayerName(name.trim());
+        }
+        // Note: If user cancels prompt or enters empty string, nothing happens
+      }
+    }, 1000);
+  } else {
+    // === PLAYER NAME EXISTS ===
+    // Player already has a name, no prompt needed
+    // Log confirmation for debugging purposes
+    console.log(`🎮 Player name found: ${this.playerName}`);
   }
+}
 ```
+
 </details>
 
 ### handle and set player name
@@ -1426,15 +1454,6 @@ Next we'll implement each of the new methods we just set up.
 
 </details>
 
-
-
-
-
-
-
-
-
-
 ## Testing your complete application
 
 1. **Start the server**:
@@ -1443,21 +1462,25 @@ Next we'll implement each of the new methods we just set up.
    ```
 
 2. **Test database integration**:
+
 - Submit a high score and verify it appears in the leaderboard
 - Customize your dino and verify settings persist after refresh
 - Check the browser console for database operation logs
 
 3. **Test the leaderboard**:
+
 - Play multiple games with different scores
 - Verify ranking is correct
 - Test the full leaderboard modal
 
 4. **Test customization**:
+
 - Change dino colors and themes
 - Verify changes persist across browser sessions
 - Test form validation for invalid inputs
 
 5. **Test error handling**:
+
 - Temporarily disconnect from the database
 - Verify graceful degradation and error messages
 
