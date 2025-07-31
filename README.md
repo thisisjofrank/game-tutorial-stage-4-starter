@@ -38,7 +38,7 @@ By the end of Stage 4, you'll have:
 
 1. Visit [neon.tech](https://neon.tech/) and sign up for an account
 2. Create a new project and name it "dino-runner"
-3. Copy the connection string from your dashboard, this will be used in your
+3. Copy the connection string from your dashboard. This will be used in your
    `.env` file
 
 ## Environment configuration
