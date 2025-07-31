@@ -1832,8 +1832,8 @@ it. Then you can assign the database to your application.
 ## Deploy your finished app
 
 Commit and push your changes to GitHub, and Deno Deploy will automatically
-deploy your application with the new features. You can also manually deploy
-your application from the Deno Deploy dashboard.
+deploy your application with the new features. You can also manually deploy your
+application from the Deno Deploy dashboard.
 
 ## Learning objectives completed
 
