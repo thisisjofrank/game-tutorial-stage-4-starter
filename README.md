@@ -61,7 +61,7 @@ ENVIRONMENT=development
 DATABASE_URL=postgresql://username:password@localhost:5432/dino_runner
 
 # Features
-ENABLE_LEADERBOARD=true
+=true
 ENABLE_CUSTOMIZATION=true
 ```
 
