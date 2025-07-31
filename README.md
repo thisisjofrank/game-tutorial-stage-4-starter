@@ -8,10 +8,11 @@ features** with PostgreSQL, global leaderboards, and player customization.
 
 By the end of Stage 4, you'll have:
 
-- ✅ PostgreSQL database integration with connection pooling
+- ✅ PostgreSQL database integration using npm:pg with connection pooling
 - ✅ Global leaderboard system with persistent high scores
-- ✅ Player customization system (dino colors, themes)
-- ✅ Score submission and retrieval API endpoints
+- ✅ Player customization system (dino colors, themes, difficulty)
+- ✅ Score submission via `/api/scores` and leaderboard via `/api/leaderboard`
+- ✅ Player customization via `/api/customization` endpoints
 - ✅ Database middleware for connection management
 - ✅ Enhanced UI with leaderboard display and customization modal
 - ✅ Data persistence across sessions and devices
@@ -169,49 +170,63 @@ In your `src/database` directory, create a file called `connection.ts`:
 <summary>📁 src/database/connection.ts (click to expand)</summary>
 
 ```typescript
-import { Pool } from "https://deno.land/x/postgres@v0.17.0/mod.ts";
+import { Pool } from "npm:pg";
 
-// Database connection pool for efficient connection management
 let pool: Pool | null = null;
 
-/**
- * Initialize the database connection pool
- * Connection pooling allows multiple concurrent database operations
- * without creating new connections for each request
- */
-export function initializeDatabase(): Pool {
-  if (pool) {
-    return pool; // Return existing pool if already initialized
+export function getDatabase(): Pool {
+  if (!pool) {
+    // Try to use DATABASE_URL first (for Neon and other cloud providers)
+    const databaseUrl = Deno.env.get("DATABASE_URL");
+
+    if (databaseUrl) {
+      console.log("🔧 Using DATABASE_URL for connection pool");
+      pool = new Pool({
+        connectionString: databaseUrl,
+        max: 10, // 10 connections in pool
+      });
+    } else {
+      // Check if Deno Deploy standard PostgreSQL environment variables are available
+      const pgHost = Deno.env.get("PGHOST");
+      const pgUser = Deno.env.get("PGUSER");
+
+      if (pgHost && pgUser) {
+        console.log("🔧 Using Deno Deploy PostgreSQL environment variables");
+        // Deno Deploy automatically sets these standard PostgreSQL env vars
+        const pgPassword = Deno.env.get("PGPASSWORD");
+        pool = new Pool({
+          host: pgHost,
+          user: pgUser,
+          password: pgPassword || undefined, // Use undefined instead of empty string
+          database: Deno.env.get("PGDATABASE") || "postgres",
+          port: parseInt(Deno.env.get("PGPORT") || "5432"),
+          max: 10,
+        });
+      } else {
+        // Fall back to custom environment variables
+        console.log("🔧 Using custom environment variables");
+        pool = new Pool({
+          host: Deno.env.get("DB_HOST") || "localhost",
+          user: Deno.env.get("DB_USER") || "postgres",
+          password: Deno.env.get("DB_PASSWORD"),
+          database: Deno.env.get("DB_NAME") || "dino_runner",
+          port: parseInt(Deno.env.get("DB_PORT") || "5432"),
+          max: 10,
+        });
+      }
+    }
+
+    console.log("🗄️ Database connection pool initialized");
   }
 
-  const databaseUrl = Deno.env.get("DATABASE_URL");
-  if (!databaseUrl) {
-    throw new Error("DATABASE_URL environment variable is required");
-  }
-
-  // Create connection pool with optimized settings
-  pool = new Pool(databaseUrl, {
-    max: 10, // Maximum 10 concurrent connections
-    min: 2, // Minimum 2 connections always ready
-    idleTimeout: 60000, // Close idle connections after 1 minute
-    connectionTimeout: 10000, // Timeout connection attempts after 10 seconds
-  });
-
-  console.log("🗄️ Database connection pool initialized");
   return pool;
 }
 
 /**
- * Get the current database pool
- * Throws error if not initialized
+ * Initialize database and return pool (called on server startup)
  */
-export function getDatabase(): Pool {
-  if (!pool) {
-    throw new Error(
-      "Database not initialized. Call initializeDatabase() first.",
-    );
-  }
-  return pool;
+export function initializeDatabase(): Pool {
+  return getDatabase();
 }
 
 /**
@@ -227,10 +242,14 @@ export async function closeDatabase(): Promise<void> {
 }
 ```
 
-We use connection pooling to reuse database connections instead of creating new
-ones, and implement graceful handling of connection failures. One shared
-connection pool is used throughout the application, with proper cleanup of
-database connections on shutdown.
+This connection module provides three-tier fallback:
+
+1. **DATABASE_URL** (for cloud providers like Neon)
+2. **Standard PostgreSQL environment variables** (for Deno Deploy)
+3. **Custom environment variables** (for local development)
+
+We use `npm:pg` which is the standard Node.js PostgreSQL driver, providing
+better compatibility and features than the Deno-specific postgres module.
 
 </details>
 
@@ -246,21 +265,23 @@ In your `src/database` directory, create a file called `migrations.ts`:
 <summary>📁 src/database/migrations.ts (click to expand)</summary>
 
 ```typescript
-import { Pool } from "https://deno.land/x/postgres@v0.17.0/mod.ts";
+import { Pool } from "npm:pg";
+import { getDatabase } from "./connection.ts";
 
 /**
- * Run database migrations to set up tables and initial data
- * Migrations ensure database schema is consistent across environments
+ * Initialize database and run migrations
  */
-export async function runMigrations(pool: Pool): Promise<void> {
-  console.log("🚀 Running database migrations...");
-
+export async function initializeDatabase(): Promise<void> {
+  console.log("🚀 Initializing database...");
+  
+  const pool = getDatabase();
   const client = await pool.connect();
+  
   try {
     // Read and execute the schema file
     const schemaSQL = await Deno.readTextFile("src/database/schema.sql");
 
-    // Split into individual statements and execute
+    // Split into individual statements and execute them
     const statements = schemaSQL
       .split(";")
       .map((stmt) => stmt.trim())
@@ -278,9 +299,9 @@ export async function runMigrations(pool: Pool): Promise<void> {
     // Insert sample data for testing (optional)
     await insertSampleData(client);
 
-    console.log("✅ Database migrations completed successfully");
+    console.log("✅ Database initialization completed successfully");
   } catch (error) {
-    console.error("❌ Migration failed:", error);
+    console.error("❌ Database initialization failed:", error);
     throw error;
   } finally {
     client.release(); // Always release the client back to the pool
@@ -294,6 +315,35 @@ async function insertSampleData(client: any): Promise<void> {
   try {
     // Check if sample data already exists
     const existingPlayers = await client.query("SELECT COUNT(*) FROM players");
+
+    if (parseInt(existingPlayers.rows[0].count) === 0) {
+      console.log("🌱 Inserting sample data...");
+
+      // Insert sample players
+      await client.query(`
+        INSERT INTO players (username, email) VALUES 
+        ('DemoPlayer1', 'demo1@example.com'),
+        ('DemoPlayer2', 'demo2@example.com'),
+        ('TestRunner', 'test@example.com')
+      `);
+
+      // Insert sample high scores
+      await client.query(`
+        INSERT INTO high_scores (player_name, score, obstacles_avoided, game_duration, created_at) VALUES 
+        ('DemoPlayer1', 2500, 25, 120, NOW() - INTERVAL '2 days'),
+        ('DemoPlayer2', 1800, 18, 85, NOW() - INTERVAL '1 day'),
+        ('TestRunner', 3200, 32, 180, NOW() - INTERVAL '3 hours')
+      `);
+
+      console.log("✅ Sample data inserted");
+    }
+  } catch (error) {
+    console.warn(
+      "⚠️ Could not insert sample data (this is normal for production):",
+      error.message,
+    );
+  }
+}
 
     if (parseInt(existingPlayers.rows[0].count) === 0) {
       console.log("🌱 Inserting sample data...");
@@ -453,10 +503,10 @@ router.get("/api/leaderboard", async (ctx: Context) => {
 });
 
 /**
- * POST /api/leaderboard - Submit a new high score
- * Body: { playerName: string, score: number, obstaclesAvoided: number }
+ * POST /api/scores - Submit a new high score
+ * Body: { playerName: string, score: number, obstaclesAvoided: number, gameDuration: number }
  */
-router.post("/api/leaderboard", async (ctx: Context) => {
+router.post("/api/scores", async (ctx: Context) => {
   try {
     const pool = ctx.state.db;
     const body = await ctx.request.body.json();
@@ -519,6 +569,9 @@ router.post("/api/leaderboard", async (ctx: Context) => {
 export default router;
 ```
 
+**Important:** Make sure to export the router as the default export so it can be
+imported correctly in your main.ts file.
+
 This code provides two new endpoints:
 
 - GET /api/leaderboard: Fetches the global leaderboard with optional limit
@@ -546,47 +599,54 @@ import type { Context } from "@oak/oak";
 const router = new Router();
 
 /**
- * GET /api/settings/:playerId - Get player customization settings
+ * GET /api/customization/:playerName - Get player customization settings
  */
-router.get("/api/settings/:playerId", async (ctx: Context) => {
+router.get("/api/customization/:playerName", async (ctx: Context) => {
   try {
     const pool = ctx.state.db;
-    const playerId = ctx.params.playerId;
+    const playerName = ctx.params.playerName;
+
+    let settings = {
+      dinoColor: "#4CAF50",
+      backgroundTheme: "desert",
+      soundEnabled: true,
+      difficultyPreference: "normal",
+    };
 
     const client = await pool.connect();
     try {
-      const result = await client.query(
-        `
-        SELECT dino_color, background_theme, sound_enabled, difficulty_preference
-        FROM player_settings
-        WHERE player_id = $1
-      `,
-        [playerId],
+      // First try to find registered player
+      const playerResult = await client.query(
+        `SELECT id FROM players WHERE username = $1`,
+        [playerName],
       );
 
-      if (result.rows.length === 0) {
-        // Return default settings if none exist
-        ctx.response.body = {
-          success: true,
-          settings: {
-            dinoColor: "#4CAF50",
-            backgroundTheme: "desert",
-            soundEnabled: true,
-            difficultyPreference: "normal",
-          },
-        };
-      } else {
-        const settings = result.rows[0];
-        ctx.response.body = {
-          success: true,
-          settings: {
-            dinoColor: settings.dino_color,
-            backgroundTheme: settings.background_theme,
-            soundEnabled: settings.sound_enabled,
-            difficultyPreference: settings.difficulty_preference,
-          },
-        };
+      if (playerResult.rows.length > 0) {
+        const playerId = Number(playerResult.rows[0].id);
+        const settingsResult = await client.query(
+          `
+          SELECT dino_color, background_theme, sound_enabled, difficulty_preference
+          FROM player_settings
+          WHERE player_id = $1
+        `,
+          [playerId],
+        );
+
+        if (settingsResult.rows.length > 0) {
+          const row = settingsResult.rows[0];
+          settings = {
+            dinoColor: row.dino_color,
+            backgroundTheme: row.background_theme,
+            soundEnabled: row.sound_enabled,
+            difficultyPreference: row.difficulty_preference,
+          };
+        }
       }
+
+      ctx.response.body = {
+        success: true,
+        settings: settings,
+      };
     } finally {
       client.release();
     }
@@ -601,10 +661,10 @@ router.get("/api/settings/:playerId", async (ctx: Context) => {
 });
 
 /**
- * POST /api/settings - Save player customization settings
- * Body: { playerId: number, dinoColor: string, backgroundTheme: string, etc. }
+ * POST /api/customization - Save player customization settings
+ * Body: { playerName: string, dinoColor: string, backgroundTheme: string, etc. }
  */
-router.post("/api/settings", async (ctx: Context) => {
+router.post("/api/customization", async (ctx: Context) => {
   try {
     const pool = ctx.state.db;
     const body = await ctx.request.body.json();
@@ -674,11 +734,14 @@ router.post("/api/settings", async (ctx: Context) => {
 export default router;
 ```
 
-This code adds two more endpoints:
+**Important:** Make sure to export the router as the default export so it can be
+imported correctly in your main.ts file.
 
-- GET /api/settings/:playerId: Retrieves player customization settings by player
-  ID
-- POST /api/settings: Saves or updates player customization settings
+This code adds two endpoints:
+
+- GET /api/customization/:playerName: Retrieves player customization settings by
+  player name
+- POST /api/customization: Saves or updates player customization settings
 
 </details>
 
@@ -739,8 +802,9 @@ app.use(customizationRoutes.allowedMethods());
 // NEW: Add helpful console logs for debugging
 console.log(`🏆 Global Leaderboard at http://${HOST}:${PORT}/leaderboard`);
 console.log(`🏆 Leaderboard API at http://${HOST}:${PORT}/api/leaderboard`);
+console.log(`🏆 Scores API at http://${HOST}:${PORT}/api/scores`);
 console.log(
-  `🎨 Customization API at http://${HOST}:${PORT}/api/customization/options`,
+  `🎨 Customization API at http://${HOST}:${PORT}/api/customization`,
 );
 ```
 
@@ -853,7 +917,7 @@ views. We use semantic HTML with proper ARIA attributes for accessibility.
 ### Make a new page for the leaderboard
 
 We'll make a new HTML file for the leaderboard, which will live at
-`/leaderboard`. We'll use
+`/leaderboard`.
 
 Create a new file called `leaderboard.html` in the `public` directory to display
 the global leaderboard:
@@ -975,9 +1039,9 @@ database integration and player customization. We will add:
 
 #### RESTful API Integration
 
-- Fetch player settings from `/api/settings/:playerId`
-- Save customization preferences to `/api/settings`
-- Submit scores to `/api/leaderboard`
+- Fetch player settings from `/api/customization/:playerName`
+- Save customization preferences to `/api/customization`
+- Submit scores to `/api/scores`
 - Load global leaderboard from `/api/leaderboard`
 
 #### Error Handling & Graceful Degradation
@@ -1432,27 +1496,308 @@ showPlayerNamePrompt() {
 
 </details>
 
+### submitScoreToDatabase()
+
+<details><summary>📁 public/js/game.js (continued)</summary>
+
+```javascript
+async submitScoreToDatabase(gameDuration) {
+  // === PLAYER NAME VALIDATION ===
+  // Only submit scores for players with names (prevents anonymous spam)
+  if (!this.playerName) return;
+
+  try {
+    // === API SUBMISSION ===
+    // Send POST request to scores API endpoint with game statistics
+    const response = await fetch("/api/scores", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        playerName: this.playerName,              // Player identification
+        score: Math.floor(this.score),            // Final game score (rounded)
+        obstaclesAvoided: this.obstaclesAvoided,  // Number of obstacles jumped over
+        gameDuration: gameDuration,               // Total game time in seconds
+        maxSpeed: this.maxSpeedReached,           // Peak speed achieved during game
+      }),
+    });
+
+    // === RESPONSE PROCESSING ===
+    if (response.ok) {
+      const data = await response.json();
+      
+      // Check if this is a new global record
+      if (data.isNewRecord) {
+        console.log("🏆 NEW GLOBAL RECORD!");
+        this.showNewRecordMessage();
+      }
+      
+      // Log the player's global rank
+      console.log(`📊 Score submitted! Global rank: #${data.globalRank}`);
+      
+      // Refresh leaderboard to show updated rankings
+      this.loadGlobalLeaderboard();
+    }
+    
+  } catch (error) {
+    // === ERROR HANDLING ===
+    // Network failures, server downtime, or JSON parsing errors
+    // Game continues normally even if score submission fails
+    console.error("Failed to submit score:", error);
+  }
+}
+  setTimeout(() => recordMsg.remove(), 3000);
+```
+
+</details>
+
+### showNewRecordMessage()
+
+<details><summary>📁 public/js/game.js (continued)</summary>
+
+```javascript
+showNewRecordMessage() {
+  // === NEW RECORD NOTIFICATION ===
+  // Create a temporary DOM element to celebrate a new global record
+  const recordMsg = document.createElement("div");
+  recordMsg.className = "new-record-message";
+  recordMsg.innerHTML = "🏆 NEW GLOBAL RECORD! 🏆";
+  
+  // Add to DOM and auto-remove after 3 seconds
+  document.body.appendChild(recordMsg);
+  setTimeout(() => recordMsg.remove(), 3000);
+}
+```
+
+</details>
+
 ### handle and set player name
 
 <details><summary>📁 public/js/game.js (continued)</summary>
 
 ```javascript
-  handlePlayerNameEnter(event) {
-    if (event.key === "Enter") {
-      event.preventDefault();
-      window.savePlayerName();
-    }
+handlePlayerNameEnter(event) {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    window.savePlayerName();
   }
+}
 
-  setPlayerName(name) {
-    this.playerName = name;
-    localStorage.setItem("playerName", name);
-    this.loadPlayerSettings();
-    console.log(`👤 Player name set: ${name}`);
-  }
+setPlayerName(name) {
+  this.playerName = name;
+  localStorage.setItem("playerName", name);
+  this.loadPlayerSettings();
+  console.log(`👤 Player name set: ${name}`);
+}
 ```
 
 </details>
+
+## Global UI Functions
+
+Now we need to add the global functions that handle the modal interactions. Add
+these functions outside of the DinoGame class:
+
+<details><summary>📁 public/js/game.js (continued)</summary>
+
+```javascript
+// === GLOBAL MODAL MANAGEMENT FUNCTIONS ===
+// These functions are attached to the window object so they can be called from HTML onclick handlers
+
+/**
+ * Open a modal dialog by ID
+ * Adds 'show' class and sets display style for proper modal display
+ */
+window.openModal = function (modalId) {
+  const modal = document.getElementById(modalId);
+  if (modal) {
+    modal.classList.add("show");
+    modal.style.display = "flex";
+
+    // Set focus to input if it's the player modal
+    if (modalId === "playerModal") {
+      setTimeout(() => {
+        const input = document.getElementById("playerNameInput");
+        if (input) {
+          input.focus();
+          input.select(); // Select any existing text
+        }
+      }, 100);
+    }
+  }
+};
+
+/**
+ * Close a modal dialog by ID
+ * Removes 'show' class and hides the modal
+ */
+window.closeModal = function (modalId) {
+  const modal = document.getElementById(modalId);
+  if (modal) {
+    modal.classList.remove("show");
+    modal.style.display = "none";
+  }
+};
+
+/**
+ * Save player name from the modal input field
+ * Called when user clicks "Save & Play" button
+ */
+window.savePlayerName = function () {
+  const input = document.getElementById("playerNameInput");
+  const playerName = input?.value.trim();
+
+  if (playerName && playerName.length > 0 && playerName.length <= 20) {
+    localStorage.setItem("playerName", playerName);
+    const playerDisplay = document.getElementById("playerNameDisplay");
+    if (playerDisplay) {
+      playerDisplay.textContent = playerName;
+    }
+    if (window.dinoGame) {
+      window.dinoGame.setPlayerName(playerName);
+    }
+    window.closeModal("playerModal");
+    console.log(`✅ Player name saved: ${playerName}`);
+  } else if (!playerName || playerName.length === 0) {
+    alert("Please enter a name");
+  } else {
+    alert("Please enter a valid name (1-20 characters)");
+  }
+};
+
+/**
+ * Open the customization modal and populate current settings
+ */
+window.openCustomization = function () {
+  // Populate the form with current settings
+  if (window.game) {
+    const settings = window.game.settings;
+
+    // Set current values in the form inputs
+    const colorPicker = document.getElementById("dinoColorPicker");
+    const themeSelect = document.getElementById("backgroundTheme");
+    const difficultySelect = document.getElementById("difficultyPreference");
+
+    if (colorPicker) colorPicker.value = settings.dinoColor;
+    if (themeSelect) themeSelect.value = settings.backgroundTheme;
+    if (difficultySelect) {
+      difficultySelect.value = settings.difficultyPreference;
+    }
+  }
+
+  window.openModal("customizationModal");
+};
+
+/**
+ * Save customization settings from the modal form
+ */
+window.saveCustomization = function () {
+  if (!window.game) return;
+
+  // Get values from form inputs
+  const colorPicker = document.getElementById("dinoColorPicker");
+  const themeSelect = document.getElementById("backgroundTheme");
+  const difficultySelect = document.getElementById("difficultyPreference");
+
+  // Update game settings
+  window.game.settings.dinoColor = colorPicker?.value || "#4CAF50";
+  window.game.settings.backgroundTheme = themeSelect?.value || "desert";
+  window.game.settings.difficultyPreference = difficultySelect?.value ||
+    "normal";
+
+  // Apply the changes immediately
+  window.game.applyCustomizations();
+
+  // Save to database/localStorage
+  window.game.savePlayerSettings();
+
+  // Close the modal
+  window.closeModal("customizationModal");
+
+  console.log("🎨 Customization saved:", window.game.settings);
+};
+
+/**
+ * Load and display global leaderboard (for leaderboard page)
+ */
+window.loadLeaderboard = async function () {
+  try {
+    const response = await fetch("/api/leaderboard?limit=20");
+    if (response.ok) {
+      const data = await response.json();
+      window.displayFullLeaderboard(data.leaderboard);
+    }
+  } catch (error) {
+    console.error("Failed to load full leaderboard:", error);
+  }
+};
+
+/**
+ * Display full leaderboard on dedicated leaderboard page
+ */
+window.displayFullLeaderboard = function (leaderboard) {
+  const container = document.getElementById("leaderboard-content");
+  if (!container || !leaderboard) return;
+
+  const html = `
+    <div class="leaderboard-table">
+      <div class="leaderboard-header">
+        <span>Rank</span>
+        <span>Player</span>
+        <span>Score</span>
+        <span>Date</span>
+      </div>
+      ${
+    leaderboard.map((entry) => `
+        <div class="leaderboard-row">
+          <span class="rank">#${entry.rank}</span>
+          <span class="player">${entry.playerName}</span>
+          <span class="score">${entry.score.toLocaleString()}</span>
+          <span class="date">${new Date(entry.date).toLocaleDateString()}</span>
+        </div>
+      `).join("")
+  }
+    </div>
+  `;
+
+  container.innerHTML = html;
+
+  // Update last updated time
+  const lastUpdated = document.getElementById("last-updated");
+  if (lastUpdated) {
+    lastUpdated.textContent = `Last updated: ${new Date().toLocaleString()}`;
+  }
+};
+
+/**
+ * Refresh leaderboard data (for leaderboard page)
+ */
+window.refreshLeaderboard = function () {
+  const container = document.getElementById("leaderboard-content");
+  if (container) {
+    container.innerHTML =
+      '<div class="loading">🔄 Refreshing leaderboard...</div>';
+  }
+  window.loadLeaderboard();
+};
+```
+
+</details>
+
+## Adding a database to Deno Deploy
+
+Once you have set up your database, you can integrate it with your Deno Deploy
+application. In your [Deno Deploy dashboard](https://app.deno.com/), click the
+"Databases" tab and then "**+ Add Database**".
+
+<img width="256" height="640" alt="Deno Deploy add database" src="https://github.com/user-attachments/assets/28a4ac6a-2054-4f44-b043-13c335051eff" />
+
+Add your database connection string to the form, and Deno Deploy will
+automatically configure the environment variables for your application. You can
+also manually add the Slug, Credentials and Port if needed. You do not need to
+include a PEM certificate for this example.
+
+Once you have added the database details, you can test the connection and save
+it. Then you can assign the database to your application.
 
 ## Testing your complete application
 
@@ -1484,32 +1829,11 @@ showPlayerNamePrompt() {
 - Temporarily disconnect from the database
 - Verify graceful degradation and error messages
 
-## Deployment considerations
+## Deploy your finished app
 
-### Environment variables
-
-Set these in production:
-
-```env
-DATABASE_URL=postgresql://user:password@host:port/database
-PORT=8000
-```
-
-### Database hosting
-
-For production, consider:
-
-- **Neon**: Serverless PostgreSQL with generous free tier
-- **Supabase**: PostgreSQL with built-in APIs and authentication
-- **Railway**: Simple deployment with PostgreSQL add-ons
-- **Heroku Postgres**: Traditional hosting with PostgreSQL add-on
-
-### Security considerations
-
-- Use environment variables for sensitive data
-- Implement input validation and SQL injection prevention
-- Add rate limiting for API endpoints
-- Consider authentication for registered players
+Commit and push your changes to GitHub, and Deno Deploy will automatically
+deploy your application with the new features. You can also manually deploy
+your application from the Deno Deploy dashboard.
 
 ## Learning objectives completed
 
